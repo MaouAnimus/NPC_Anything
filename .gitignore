@@ -1,0 +1,62 @@
+# ==========================================
+# .gitignore para NPC Anything
+# C# / .NET, Godot 4.x (.NET), Python & Tools
+# ==========================================
+
+# --- .NET / C# ---
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.dotCover
+
+# --- Godot 4.x ---
+.godot/
+*.import
+export_presets.cfg
+.mono/
+
+# --- Python & Tools ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+env.bak/
+venv.bak/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- IDEs & Editores ---
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.swp
+*~
+
+# --- Telemetría local, logs y runs de pruebas ---
+runs/
+telemetry_logs/
+*.log
+*.tmp
+temp/
+
+# --- OS Caches ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# --- Paquetes y propuestas temporales sin revisar ---
+# Mantener proposals/ pero ignorar diffs aplicados o temporales si se desea
+proposals/*.applied
+proposals/*.tmp

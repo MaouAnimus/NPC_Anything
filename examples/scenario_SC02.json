@@ -1,0 +1,14 @@
+{
+  "schema_version": "0.1-draft",
+  "id": "SC-02",
+  "description": "El jugador se oculta tras ser observado; se comprueba caducidad de memoria",
+  "seed": 42,
+  "duration_seconds": 35,
+  "player_path": [
+    {"time_s": 0, "position": [0, 0, 4], "visible_to": ["enemy_01"]},
+    {"time_s": 5, "position": [4, 0, 10], "visible_to": []}
+  ],
+  "npc_ids": ["enemy_01"],
+  "expected_events": ["stimulus_received", "memory_updated", "memory_expired"],
+  "note": "Archivo de diseño, no un runner funcional. Las coordenadas y sensores son ilustrativos."
+}

@@ -1,0 +1,35 @@
+# Ejemplo conceptual; NO usado ni validado en una build.
+# Los tiempos/pesos deben calibrarse con tests, no son parámetros de gameplay aprobados.
+profiles:
+  easy:
+    reaction_delay_ms: 850
+    sound_location_error_m: 6.0
+    search_memory_ttl_ms: 7000
+    squad_message_delay_ms: 1500
+    coordination_weight: 0.25
+    hp_multiplier: 1.0
+    damage_multiplier: 1.0
+  normal:
+    reaction_delay_ms: 550
+    sound_location_error_m: 4.0
+    search_memory_ttl_ms: 11000
+    squad_message_delay_ms: 900
+    coordination_weight: 0.5
+    hp_multiplier: 1.0
+    damage_multiplier: 1.0
+  hard:
+    reaction_delay_ms: 350
+    sound_location_error_m: 2.5
+    search_memory_ttl_ms: 16000
+    squad_message_delay_ms: 500
+    coordination_weight: 0.7
+    hp_multiplier: 1.0
+    damage_multiplier: 1.0
+  expert:
+    reaction_delay_ms: 260
+    sound_location_error_m: 1.7
+    search_memory_ttl_ms: 19000
+    squad_message_delay_ms: 350
+    coordination_weight: 0.85
+    hp_multiplier: 1.0
+    damage_multiplier: 1.0

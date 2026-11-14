@@ -1,0 +1,11 @@
+Fase,Semana_inicio,Semana_fin,Entregable,Gate,Estado
+Fundaciones,1,2,Escena baseline,G0,Planificado
+Percepcion,3,4,Sensores y tests,G1,Planificado
+Memoria y Decision,5,6,Selector Utility,G2,Planificado
+Cobertura,7,8,Navegacion y fallback,G3,Planificado
+Roles,9,10,Perfiles enemigos,G4,Planificado
+Coordinacion,11,12,Mensajes y compañero,G5,Planificado
+Dificultad,13,14,Perfiles y telemetria,G6,Planificado
+Agente local,15,16,Diagnostico read-only,G7,Planificado
+Validacion,17,18,Estudio A/B,G8,Planificado
+Cierre,19,20,Demo release candidate,G9,Planificado
