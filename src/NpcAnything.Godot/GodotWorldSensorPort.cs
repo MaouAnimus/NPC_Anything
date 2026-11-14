@@ -15,18 +15,18 @@ public class GodotWorldSensorPort : IWorldSensorPort
     private readonly CharacterBody3D _actor;
     private readonly RayCast3D? _lineOfSightRay;
     private readonly float _maxVisionDistance;
-    private readonly float _visionAngleDegrees;
+    private readonly float _visionHalfAngleDegrees;
 
     public GodotWorldSensorPort(
         CharacterBody3D actor,
         RayCast3D? lineOfSightRay,
         float maxVisionDistance = 20.0f,
-        float visionAngleDegrees = 85.0f)
+        float visionHalfAngleDegrees = 45.0f) // 45° a cada lado = 90° de FOV total
     {
         _actor = actor;
         _lineOfSightRay = lineOfSightRay;
         _maxVisionDistance = maxVisionDistance;
-        _visionAngleDegrees = visionAngleDegrees;
+        _visionHalfAngleDegrees = visionHalfAngleDegrees;
     }
 
     public IReadOnlyList<Stimulus> Observe(string npcId, long simulationTimeMs)
@@ -46,13 +46,13 @@ public class GodotWorldSensorPort : IWorldSensorPort
             Vector3 toTarget = targetEyePos - actorEyePos;
             float distance = toTarget.Length();
 
-            // 1. Percepción Visual (Cono FOV + Oclusión por RayCast)
+            // 1. Percepción Visual (Cono FOV de 90° + Oclusión física por RayCast)
             if (distance <= _maxVisionDistance)
             {
                 Vector3 forward = -_actor.Transform.Basis.Z;
                 float angle = Mathf.RadToDeg(forward.AngleTo(toTarget));
 
-                if (angle <= _visionAngleDegrees && _lineOfSightRay != null)
+                if (angle <= _visionHalfAngleDegrees && _lineOfSightRay != null)
                 {
                     _lineOfSightRay.GlobalPosition = actorEyePos;
                     _lineOfSightRay.TargetPosition = _lineOfSightRay.ToLocal(targetEyePos);
@@ -77,18 +77,17 @@ public class GodotWorldSensorPort : IWorldSensorPort
                 }
             }
 
-            // 2. Percepción Acústica (Ruido emitido por el jugador)
+            // 2. Percepción Acústica (Ruido emitido por el jugador mediante interfaz tipada)
             float noiseRadius = 0f;
-            var noiseProp = playerBody.Get("CurrentNoiseRadius");
-            if (noiseProp.VariantType == Variant.Type.Float)
+            if (playerBody is IAcousticEmitter emitter)
             {
-                noiseRadius = noiseProp.AsSingle();
+                noiseRadius = emitter.CurrentNoiseRadius;
             }
 
             if (noiseRadius > 0f && distance <= noiseRadius)
             {
                 // El sonido decae con la distancia y aporta incertidumbre espacial
-                float acousticConfidence = Mathf.Clamp(1.0f - (distance / noiseRadius) * 0.4f, 0.4f, 0.9f);
+                float acousticConfidence = Mathf.Clamp(1.0f - (distance / noiseRadius) * 0.4f, 0.4f, 0.85f);
                 float uncertaintyMeters = 1.0f + (distance * 0.1f);
 
                 stimuli.Add(new Stimulus(

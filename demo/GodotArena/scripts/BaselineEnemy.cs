@@ -4,6 +4,7 @@ namespace GodotArena.Scripts;
 
 /// <summary>
 /// Máquina de estados tradicional (FSM Baseline) para comparación experimental.
+/// Paridad estadística estricta con el enemigo avanzado para garantizar validez científica.
 /// Flujo: Patrol -> Chase -> Attack -> Search -> Patrol
 /// </summary>
 public partial class BaselineEnemy : CharacterBody3D
@@ -16,11 +17,12 @@ public partial class BaselineEnemy : CharacterBody3D
         Search
     }
 
-    [Export] public float PatrolSpeed { get; set; } = 3.0f;
-    [Export] public float ChaseSpeed { get; set; } = 5.0f;
-    [Export] public float AttackRange { get; set; } = 3.0f;
-    [Export] public float VisionDistance { get; set; } = 18.0f;
-    [Export] public float VisionAngleDegrees { get; set; } = 85.0f;
+    [Export] public float PatrolSpeed { get; set; } = 3.5f;
+    [Export] public float ChaseSpeed { get; set; } = 5.5f;
+    [Export] public float AttackRange { get; set; } = 12.0f;
+    [Export] public float AttackDamage { get; set; } = 10.0f;
+    [Export] public float VisionDistance { get; set; } = 20.0f;
+    [Export] public float VisionHalfAngleDegrees { get; set; } = 45.0f; // 90° FOV total
     [Export] public float SearchDurationSeconds { get; set; } = 4.0f;
 
     public State CurrentState { get; private set; } = State.Patrol;
@@ -46,7 +48,6 @@ public partial class BaselineEnemy : CharacterBody3D
 
         if (PatrolWaypoints.Count == 0)
         {
-            // Puntos por defecto si no están asignados en el editor
             PatrolWaypoints.Add(GlobalPosition + new Vector3(6, 0, 0));
             PatrolWaypoints.Add(GlobalPosition + new Vector3(-6, 0, 0));
         }
@@ -63,7 +64,6 @@ public partial class BaselineEnemy : CharacterBody3D
 
         bool seesPlayer = CheckLineOfSightToPlayer();
 
-        // Transiciones de estado
         switch (CurrentState)
         {
             case State.Patrol:
@@ -94,7 +94,6 @@ public partial class BaselineEnemy : CharacterBody3D
                 }
                 else
                 {
-                    // Perdió visión: entra a buscar a la última posición conocida
                     ChangeState(State.Search);
                 }
                 break;
@@ -147,6 +146,11 @@ public partial class BaselineEnemy : CharacterBody3D
     private void ChangeState(State newState)
     {
         if (CurrentState == newState) return;
+
+        // Registrar en telemetría de la escena
+        var manager = GetTree().CurrentScene as ArenaManager;
+        manager?.LogEvent("state_changed", Name, newState.ToString(), 1.0f, $"FSM_{newState}");
+
         GD.Print($"[BaselineEnemy {Name}] Estado: {CurrentState} -> {newState}");
         CurrentState = newState;
 
@@ -168,12 +172,11 @@ public partial class BaselineEnemy : CharacterBody3D
         float dist = toPlayer.Length();
         if (dist > VisionDistance) return false;
 
-        // Comprobación de cono de visión (FOV)
+        // Cono FOV de 90° (45° a cada lado)
         Vector3 forward = -Transform.Basis.Z;
         float angle = Mathf.RadToDeg(forward.AngleTo(toPlayer));
-        if (angle > VisionAngleDegrees) return false;
+        if (angle > VisionHalfAngleDegrees) return false;
 
-        // RayCast para detectar oclusión física (muros)
         _lineOfSightRay.GlobalPosition = GlobalPosition + new Vector3(0, 1.2f, 0);
         _lineOfSightRay.TargetPosition = _lineOfSightRay.ToLocal(_targetPlayer.GlobalPosition + new Vector3(0, 1.0f, 0));
         _lineOfSightRay.ForceRaycastUpdate();
@@ -210,9 +213,13 @@ public partial class BaselineEnemy : CharacterBody3D
     {
         if (_attackCooldown <= 0f && _targetPlayer != null)
         {
-            _attackCooldown = 1.2f;
-            _targetPlayer.ApplyDamage(15.0f);
-            GD.Print($"[BaselineEnemy {Name}] ¡Ataque ejecutado sobre el jugador!");
+            _attackCooldown = 1.0f;
+            _targetPlayer.ApplyDamage(AttackDamage);
+
+            var manager = GetTree().CurrentScene as ArenaManager;
+            manager?.LogEvent("attack_executed", Name, "Attack", AttackDamage, "FSM_DIRECT_FIRE");
+
+            GD.Print($"[BaselineEnemy {Name}] ¡Disparo certero sobre el jugador!");
         }
     }
 

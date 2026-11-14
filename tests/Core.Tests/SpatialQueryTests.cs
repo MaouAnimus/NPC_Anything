@@ -22,6 +22,11 @@ public class SpatialQueryTests
                 .Where(spot => origin.DistanceSquaredTo(spot) <= maxRadiusSq)
                 .ToList();
         }
+
+        public bool IsPathReachable(Vec3 origin, Vec3 destination, float maxPathLength)
+        {
+            return origin.DistanceTo(destination) <= maxPathLength;
+        }
     }
 
     [Fact]
@@ -29,10 +34,10 @@ public class SpatialQueryTests
     {
         var coverPoints = new[]
         {
-            new Vec3(2f, 0f, 0f),   // Distancia 2m (dentro de 5m)
-            new Vec3(0f, 0f, 4f),   // Distancia 4m (dentro de 5m)
-            new Vec3(10f, 0f, 0f),  // Distancia 10m (fuera de 5m)
-            new Vec3(0f, 0f, -6f)   // Distancia 6m (fuera de 5m)
+            new Vec3(2f, 0f, 0f),
+            new Vec3(0f, 0f, 4f),
+            new Vec3(10f, 0f, 0f),
+            new Vec3(0f, 0f, -6f)
         };
 
         var port = new MockSpatialQueryPort(coverPoints);
@@ -47,19 +52,14 @@ public class SpatialQueryTests
     }
 
     [Fact]
-    public void QueryReachableCovers_NoCoversInRange_ReturnsEmptyList()
+    public void IsPathReachable_VerifiesDistanceThreshold()
     {
-        var coverPoints = new[]
-        {
-            new Vec3(20f, 0f, 20f),
-            new Vec3(-30f, 0f, 0f)
-        };
-
-        var port = new MockSpatialQueryPort(coverPoints);
+        var port = new MockSpatialQueryPort(Array.Empty<Vec3>());
         var origin = new Vec3(0f, 0f, 0f);
+        var inRange = new Vec3(3f, 4f, 0f); // Distancia 5
+        var outOfRange = new Vec3(10f, 10f, 0f);
 
-        var reachable = port.QueryReachableCovers("npc_test", origin, maxRadiusMeters: 10.0f);
-
-        Assert.Empty(reachable);
+        Assert.True(port.IsPathReachable(origin, inRange, maxPathLength: 6.0f));
+        Assert.False(port.IsPathReachable(origin, outOfRange, maxPathLength: 6.0f));
     }
 }

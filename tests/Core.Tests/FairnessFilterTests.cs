@@ -17,18 +17,55 @@ public class FairnessFilterTests
             CurrentAction: ActionKind.Patrol,
             CurrentActionScore: 0.5f,
             CurrentTimeMs: 1000,
-            Memory: new Dictionary<string, MemoryFact>(), // Memoria vacía del jugador
+            Memory: new Dictionary<string, MemoryFact>(), // Memoria vacía
             ReachableCoverPoints: new List<Vec3>(),
             ReservedSquadCovers: new HashSet<string>());
 
         var rawCandidates = new[]
         {
-            new ActionCandidate(ActionKind.Attack, 0.95f, "ATTACK_CHEAT", TargetId: "player")
+            new ActionCandidate(ActionKind.Attack, 0.95f, "ATTACK_CHEAT", TargetId: "Player")
         };
 
         var filtered = FairnessFilter.ApplyFairnessRules(rawCandidates, context);
 
         Assert.Empty(filtered); // Bloqueado: no se permite ataque omnisciente
+    }
+
+    [Fact]
+    public void ApplyFairnessRules_AttackWithAcousticProvenance_IsFilteredOut()
+    {
+        var memory = new Dictionary<string, MemoryFact>
+        {
+            ["Player"] = new MemoryFact(
+                "Player",
+                new Vec3(5, 0, 0),
+                Confidence: 0.85f,
+                PrecisionMeters: 2.0f,
+                LastUpdatedMs: 1000,
+                ExpiresAtMs: 4000,
+                Provenance: "godot_acoustic_hearing") // Procedencia auditiva
+        };
+
+        var context = new NpcContext(
+            NpcId: "enemy_01",
+            Role: NpcRole.Assault,
+            Position: new Vec3(0, 0, 0),
+            HealthRatio: 1.0f,
+            CurrentAction: ActionKind.Patrol,
+            CurrentActionScore: 0.5f,
+            CurrentTimeMs: 1000,
+            Memory: memory,
+            ReachableCoverPoints: new List<Vec3>(),
+            ReservedSquadCovers: new HashSet<string>());
+
+        var rawCandidates = new[]
+        {
+            new ActionCandidate(ActionKind.Attack, 0.90f, "ATTACK_FROM_SOUND", TargetId: "Player")
+        };
+
+        var filtered = FairnessFilter.ApplyFairnessRules(rawCandidates, context);
+
+        Assert.Empty(filtered); // Bloqueado: El sonido NO habilita daño directo a través de muros
     }
 
     [Fact]
@@ -47,7 +84,7 @@ public class FairnessFilterTests
             CurrentTimeMs: 1000,
             Memory: new Dictionary<string, MemoryFact>(),
             ReachableCoverPoints: new[] { reservedCoverPos },
-            ReservedSquadCovers: new HashSet<string> { coverKey }); // Ya reservada por un aliado
+            ReservedSquadCovers: new HashSet<string> { coverKey });
 
         var rawCandidates = new[]
         {

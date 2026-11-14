@@ -1,25 +1,26 @@
 using System.Collections.Generic;
-using System.Linq;
 using Godot;
 using NpcAnything.Core.Domain;
 using NpcAnything.Core.Memory;
 using NpcAnything.Core.Ports;
 using NpcAnything.Core.Rules;
+using NpcAnything.Core.Tactics;
 using NpcAnything.Core.Utility;
 
 namespace NpcAnything.GodotAdapter;
 
 /// <summary>
-/// Controlador del cerebro táctico de un NPC.
-/// Conecta el bucle de Godot con NpcAnything.Core a una frecuencia controlada (ej. 250 ms),
-/// garantizando que el Core decida sin ensuciar el adaptador con reglas de conveniencia.
+/// Orquestador del cerebro de un NPC en Godot.
+/// REGLA ARQUITECTÓNICA (P1): Cero lógica táctica dentro de este componente.
+/// Se limita a orquestar sensores -> memoria -> ActionCandidateGenerator (Core) -> UtilitySelector (Core) -> ejecutor.
 /// </summary>
 public partial class NpcBrainController : Node
 {
-    [Export] public string NpcId { get; set; } = "enemy_advanced_01";
+    [Export] public string NpcId { get; set; } = "enemy_core_01";
     [Export] public NpcRole Role { get; set; } = NpcRole.Assault;
     [Export] public float DecisionIntervalSeconds { get; set; } = 0.25f; // 4 Hz
     [Export] public float MaxHealth { get; set; } = 100.0f;
+    [Export] public float AttackDamage { get; set; } = 10.0f;
 
     public float CurrentHealth { get; private set; }
 
@@ -27,11 +28,16 @@ public partial class NpcBrainController : Node
     private NpcMotorController? _motor;
     private RayCast3D? _lineOfSightRay;
 
+    // Componentes puros del Core
     private MemoryStore _memoryStore = null!;
+    private ActionCandidateGenerator _candidateGenerator = null!;
     private UtilitySelector _utilitySelector = null!;
+
+    // Puertos del adaptador
     private GodotWorldSensorPort _sensorPort = null!;
     private GodotSpatialQueryPort _spatialPort = null!;
     private GodotActionExecutorPort _actionExecutor = null!;
+    private ITelemetryExporter _telemetryExporter = null!;
 
     private float _decisionTimer = 0f;
     private ActionDecision _currentDecision = ActionDecision.FallbackHold();
@@ -59,14 +65,16 @@ public partial class NpcBrainController : Node
 
         _lineOfSightRay = _actor.GetNodeOrNull<RayCast3D>("LineOfSightRay");
 
-        // Inicializar componentes del Core
+        // 1. Inicializar componentes puros del Core
         _memoryStore = new MemoryStore(defaultTtlMs: 4000);
+        _candidateGenerator = new ActionCandidateGenerator { MaxAttackRange = 12.0f, MinVisualConfidenceToAttack = 0.70f };
         _utilitySelector = new UtilitySelector(hysteresisMargin: 0.12f, minimumViableScore: 0.15f);
 
-        // Inicializar puertos de adaptación
-        _sensorPort = new GodotWorldSensorPort(_actor, _lineOfSightRay);
+        // 2. Inicializar adaptadores de puertos
+        _sensorPort = new GodotWorldSensorPort(_actor, _lineOfSightRay, maxVisionDistance: 20.0f, visionHalfAngleDegrees: 45.0f);
         _spatialPort = new GodotSpatialQueryPort(_actor);
-        _actionExecutor = new GodotActionExecutorPort(_actor, _motor, OnExecuteAttack);
+        _actionExecutor = new GodotActionExecutorPort(_actor, _motor, _lineOfSightRay, ApplyDamageToTarget, AttackDamage);
+        _telemetryExporter = new GodotTelemetryExporter(this);
     }
 
     public override void _PhysicsProcess(double delta)
@@ -87,17 +95,17 @@ public partial class NpcBrainController : Node
 
         long nowMs = (long)Time.GetTicksMsec();
 
-        // 1. Recolección sensorial física -> Estímulos puros
+        // 1. Sensores físicos -> Estímulos
         var stimuli = _sensorPort.Observe(NpcId, nowMs);
 
-        // 2. Actualización de hechos en la memoria de trabajo con degradación temporal
+        // 2. Memoria con degradación temporal
         _memoryStore.ProcessStimuli(stimuli, nowMs);
         var memorySnapshot = _memoryStore.GetActiveFacts(nowMs);
 
-        // 3. Consulta de geometría y navegación -> Coberturas transitables
+        // 3. Consulta de geometría y rutas navegables (ISpatialQueryPort con MapGetPath)
         var reachableCovers = _spatialPort.QueryReachableCovers(NpcId, _actor.GlobalPosition.ToVec3(), maxRadiusMeters: 16.0f);
 
-        // 4. Construcción del DTO contextual (sin datos omniscientes)
+        // 4. Construcción del DTO de contexto
         var context = new NpcContext(
             NpcId: NpcId,
             Role: Role,
@@ -110,86 +118,60 @@ public partial class NpcBrainController : Node
             ReachableCoverPoints: reachableCovers,
             ReservedSquadCovers: new HashSet<string>());
 
-        // 5. Generación de candidatos de acción a partir del conocimiento disponible
-        var candidates = GenerateActionCandidates(context);
+        // 5. Generación de candidatos tácticamente pura (NpcAnything.Core)
+        var rawCandidates = _candidateGenerator.GenerateCandidates(context);
 
-        // 6. Filtrado estricto por reglas de justicia (anti-wallhack y respeto de coberturas)
-        var validCandidates = FairnessFilter.ApplyFairnessRules(candidates, context);
+        // 6. Reglas de justicia anti-trampas (NpcAnything.Core)
+        var validCandidates = FairnessFilter.ApplyFairnessRules(rawCandidates, context);
 
-        // 7. Selección por función de utilidad con histéresis y fallback
+        // 7. Selección por función de utilidad con histéresis (NpcAnything.Core)
         var decision = _utilitySelector.SelectBestAction(validCandidates, context);
+
+        // Registrar telemetría si hubo cambio de acción o score significativo
+        if (decision.Kind != _currentDecision.Kind)
+        {
+            _telemetryExporter.Emit(new TelemetryEvent(
+                SchemaVersion: "0.1",
+                RunId: "run_active",
+                ScenarioId: "SC02_CORE",
+                Seed: 42,
+                SimulationTimeMs: nowMs,
+                NpcId: NpcId,
+                Event: "action_changed",
+                Role: Role.ToString(),
+                Action: decision.Kind.ToString(),
+                Score: decision.Score,
+                ReasonCode: decision.ReasonCode,
+                KnowledgeSource: "core_utility",
+                KnowledgeAgeMs: 0,
+                ProfileHash: "sha256_mock"));
+        }
+
         _currentDecision = decision;
 
-        // 8. Solicitud al ejecutor físico
+        // 8. Ejecución física con verificación de trayectoria
+        if (decision.Kind == ActionKind.Attack && _attackCooldown > 0f)
+        {
+            // Respetar cadencia de disparo
+            return;
+        }
+
         _actionExecutor.Request(NpcId, decision);
-    }
 
-    private List<ActionCandidate> GenerateActionCandidates(NpcContext context)
-    {
-        var list = new List<ActionCandidate>();
-
-        // Verificar si existe memoria activa del jugador
-        var playerFact = context.Memory.Values.FirstOrDefault(f => f.SubjectId == "Player");
-
-        if (playerFact != null && !playerFact.IsExpired(context.CurrentTimeMs))
-        {
-            float dist = context.Position.DistanceTo(playerFact.EstimatedPosition);
-            float confidence = playerFact.GetDecayedConfidence(context.CurrentTimeMs);
-
-            // Candidato de ataque
-            if (dist <= 14.0f)
-            {
-                float attackScore = (1.0f - (dist / 14.0f)) * 0.7f + (confidence * 0.3f);
-                list.Add(new ActionCandidate(
-                    ActionKind.Attack,
-                    attackScore,
-                    "TARGET_IN_RANGE_AND_SIGHT",
-                    TargetId: "Player",
-                    TargetPosition: playerFact.EstimatedPosition));
-            }
-
-            // Candidato de cobertura si la salud es baja o la amenaza es alta
-            if (context.ReachableCoverPoints.Count > 0)
-            {
-                Vec3 bestCover = context.ReachableCoverPoints[0];
-                float coverScore = (1.0f - context.HealthRatio) * 0.8f + 0.3f;
-                list.Add(new ActionCandidate(
-                    ActionKind.TakeCover,
-                    coverScore,
-                    "THREAT_ACTIVE_COVER_SEEKING",
-                    TargetPosition: bestCover));
-            }
-
-            // Candidato de investigación si la confianza está degradándose
-            if (confidence < 0.8f)
-            {
-                list.Add(new ActionCandidate(
-                    ActionKind.Investigate,
-                    0.55f,
-                    "CONFIDENCE_DEGRADED_SEARCH_LAST_SEEN",
-                    TargetPosition: playerFact.EstimatedPosition));
-            }
-        }
-        else
-        {
-            // Sin contacto: mantener posición o patrulla
-            list.Add(new ActionCandidate(ActionKind.Hold, 0.40f, "NO_ACTIVE_CONTACT_HOLD"));
-        }
-
-        return list;
-    }
-
-    private void OnExecuteAttack(string targetId)
-    {
-        if (_attackCooldown <= 0f && _actor != null)
+        if (decision.Kind == ActionKind.Attack)
         {
             _attackCooldown = 1.0f;
-            var target = _actor.GetTree().GetFirstNodeInGroup("Player") as Node;
-            if (target != null && target.HasMethod("ApplyDamage"))
-            {
-                target.Call("ApplyDamage", 12.0f);
-                GD.Print($"[NpcBrainController {NpcId}] ¡Disparo certero sobre {targetId}!");
-            }
+        }
+    }
+
+    private void ApplyDamageToTarget(string targetId, float damage)
+    {
+        if (_actor == null || !_actor.IsInsideTree()) return;
+
+        var target = _actor.GetTree().GetFirstNodeInGroup("Player") as Node;
+        if (target != null && target.HasMethod("ApplyDamage"))
+        {
+            target.Call("ApplyDamage", damage);
         }
     }
 

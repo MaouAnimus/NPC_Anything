@@ -1,4 +1,5 @@
 using Godot;
+using NpcAnything.GodotAdapter;
 
 namespace GodotArena.Scripts;
 
@@ -6,7 +7,7 @@ namespace GodotArena.Scripts;
 /// Controlador táctico del jugador en primera/tercera persona.
 /// Emite eventos de ruido (caminar/correr) y sirve como objetivo para la IA.
 /// </summary>
-public partial class Player : CharacterBody3D
+public partial class Player : CharacterBody3D, IAcousticEmitter
 {
     [Export] public float WalkSpeed { get; set; } = 4.5f;
     [Export] public float SprintSpeed { get; set; } = 7.0f;

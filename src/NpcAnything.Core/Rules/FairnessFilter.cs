@@ -4,14 +4,14 @@ namespace NpcAnything.Core.Rules;
 
 /// <summary>
 /// Filtro de justicia para garantizar que ninguna acción viole las restricciones
-/// de información acotada (evitar wallhacks, teletransportación cognitiva o colisión de coberturas).
+/// de información acotada (evitar wallhacks, daño a través de obstáculos o colisión de coberturas).
 /// </summary>
 public static class FairnessFilter
 {
-    public const float MinConfidenceToAttack = 0.20f;
+    public const float MinConfidenceToAttack = 0.70f;
 
     /// <summary>
-    /// Filtra y ajusta los candidatos de acción garantizando el cumplimiento de las reglas de juego justo.
+    /// Filtra y descarta candidatos de acción que violen las reglas de juego limpio y no-omnisciencia.
     /// </summary>
     public static IReadOnlyList<ActionCandidate> ApplyFairnessRules(
         IEnumerable<ActionCandidate> rawCandidates,
@@ -21,14 +21,16 @@ public static class FairnessFilter
 
         foreach (var candidate in rawCandidates)
         {
-            // Regla 1: No atacar a ciegas si no hay hecho en memoria o si la confianza expiró
+            // Regla 1: Un ataque directo REQUIERE contacto visual comprobado y confianza alta.
+            // Los estímulos auditivos o desactualizados NUNCA pueden habilitar ataque directo.
             if (candidate.Kind == ActionKind.Attack && candidate.TargetId != null)
             {
                 if (!context.Memory.TryGetValue(candidate.TargetId, out var fact) ||
                     fact.IsExpired(context.CurrentTimeMs) ||
-                    fact.GetDecayedConfidence(context.CurrentTimeMs) < MinConfidenceToAttack)
+                    fact.GetDecayedConfidence(context.CurrentTimeMs) < MinConfidenceToAttack ||
+                    !fact.Provenance.Contains("vision", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Se descarta el ataque omnisciente
+                    // Descartado: Intento de ataque a ciegas o a través de oclusión (anti-wallhack)
                     continue;
                 }
             }
@@ -39,7 +41,7 @@ public static class FairnessFilter
                 string coverKey = $"{candidate.TargetPosition.Value.X:F1}_{candidate.TargetPosition.Value.Z:F1}";
                 if (context.ReservedSquadCovers.Contains(coverKey))
                 {
-                    // Cobertura ocupada por aliado
+                    // Descartado: Cobertura ocupada por un aliado
                     continue;
                 }
             }
