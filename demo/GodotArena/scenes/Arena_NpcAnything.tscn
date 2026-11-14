@@ -1,0 +1,18 @@
+[gd_scene load_steps=5 format=3 uid="uid://carena_npcanything"]
+
+[ext_resource type="Script" path="res://scripts/ArenaManager.cs" id="1_manager"]
+[ext_resource type="PackedScene" path="res://scenes/ArenaEnvironment.tscn" id="2_env"]
+[ext_resource type="PackedScene" path="res://scenes/Player.tscn" id="3_player"]
+[ext_resource type="PackedScene" path="res://scenes/NpcAnythingEnemy.tscn" id="4_core_enemy"]
+
+[node name="Arena_NpcAnything" type="Node3D"]
+script = ExtResource("1_manager")
+ScenarioId = "SC02_CORE"
+
+[node name="ArenaEnvironment" parent="." instance=ExtResource("2_env")]
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 11)
+
+[node name="NpcAnythingEnemy" parent="." instance=ExtResource("4_core_enemy")]
+transform = Transform3D(-1, 0, -8.74228e-08, 0, 1, 0, 8.74228e-08, 0, -1, 0, 0, -11)
