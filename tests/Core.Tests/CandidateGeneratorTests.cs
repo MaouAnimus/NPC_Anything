@@ -156,4 +156,62 @@ public class CandidateGeneratorTests
         float hysteresisMargin = 0.12f;
         Assert.True(patrol.Score >= (hold.Score + hysteresisMargin));
     }
+
+    [Fact]
+    public void GenerateCandidates_VisualContact_BetweenAttackAndVisionRange_GeneratesPursueCandidate()
+    {
+        var generator = new ActionCandidateGenerator { MaxAttackRange = 12.0f, MaxVisionDistance = 20.0f };
+
+        // Objetivo visible a 16 metros (entre 12m y 20m)
+        var memory = new Dictionary<string, MemoryFact>
+        {
+            ["Player"] = new MemoryFact(
+                "Player",
+                new Vec3(16, 0, 0),
+                Confidence: 0.95f,
+                PrecisionMeters: 0.3f,
+                LastUpdatedMs: 1000,
+                ExpiresAtMs: 4000,
+                Provenance: "godot_vision_raycast")
+        };
+
+        var context = CreateContext(memory, position: new Vec3(0, 0, 0));
+        var candidates = generator.GenerateCandidates(context);
+
+        // Debe generar Pursue para cerrar distancia hacia el jugador visible
+        var pursueCandidate = candidates.FirstOrDefault(c => c.Kind == ActionKind.Pursue);
+        Assert.NotNull(pursueCandidate);
+        Assert.Equal("Player", pursueCandidate.TargetId);
+        Assert.True(pursueCandidate.TargetPosition.HasValue);
+        Assert.True(pursueCandidate.Score >= 0.70f);
+        Assert.Equal("TARGET_IN_SIGHT_CLOSE_DISTANCE", pursueCandidate.ReasonCode);
+
+        // No debe generar Attack porque está fuera del alcance de 12m
+        Assert.DoesNotContain(candidates, c => c.Kind == ActionKind.Attack);
+    }
+
+    [Fact]
+    public void GenerateCandidates_VisualContact_WithinAttackRange_GeneratesAttackNotPursue()
+    {
+        var generator = new ActionCandidateGenerator { MaxAttackRange = 12.0f, MaxVisionDistance = 20.0f };
+
+        // Objetivo visible a 8 metros (dentro de 12m)
+        var memory = new Dictionary<string, MemoryFact>
+        {
+            ["Player"] = new MemoryFact(
+                "Player",
+                new Vec3(8, 0, 0),
+                Confidence: 0.95f,
+                PrecisionMeters: 0.3f,
+                LastUpdatedMs: 1000,
+                ExpiresAtMs: 4000,
+                Provenance: "godot_vision_raycast")
+        };
+
+        var context = CreateContext(memory, position: new Vec3(0, 0, 0));
+        var candidates = generator.GenerateCandidates(context);
+
+        Assert.Contains(candidates, c => c.Kind == ActionKind.Attack);
+        Assert.DoesNotContain(candidates, c => c.Kind == ActionKind.Pursue);
+    }
 }

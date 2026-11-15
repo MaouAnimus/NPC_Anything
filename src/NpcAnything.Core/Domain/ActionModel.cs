@@ -8,6 +8,7 @@ public enum ActionKind
     Hold,
     Patrol,
     Investigate,
+    Pursue,
     TakeCover,
     Attack,
     Flank,

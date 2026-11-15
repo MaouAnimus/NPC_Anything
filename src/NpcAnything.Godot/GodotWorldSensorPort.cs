@@ -16,17 +16,58 @@ public class GodotWorldSensorPort : IWorldSensorPort
     private readonly RayCast3D? _lineOfSightRay;
     private readonly float _maxVisionDistance;
     private readonly float _visionHalfAngleDegrees;
+    private readonly uint _randomSeed;
 
     public GodotWorldSensorPort(
         CharacterBody3D actor,
         RayCast3D? lineOfSightRay,
         float maxVisionDistance = 20.0f,
-        float visionHalfAngleDegrees = 45.0f) // 45° a cada lado = 90° de FOV total
+        float visionHalfAngleDegrees = 45.0f,
+        uint randomSeed = 42) // 45° a cada lado = 90° de FOV total
     {
         _actor = actor;
         _lineOfSightRay = lineOfSightRay;
         _maxVisionDistance = maxVisionDistance;
         _visionHalfAngleDegrees = visionHalfAngleDegrees;
+        _randomSeed = randomSeed;
+    }
+
+    /// <summary>
+    /// Hash determinista FNV-1a de 32 bits estable entre diferentes procesos y ejecuciones independientes.
+    /// Garantiza reproducibilidad científica estricta bajo una misma semilla sin depender de System.HashCode.
+    /// </summary>
+    public static uint ComputeFnv1a32(uint seed, string npcId, string targetId, int timeBucket)
+    {
+        const uint fnvPrime = 16777619;
+        uint hash = 2166136261 ^ seed;
+
+        for (int i = 0; i < npcId.Length; i++)
+        {
+            hash ^= (byte)npcId[i];
+            hash *= fnvPrime;
+            hash ^= (byte)(npcId[i] >> 8);
+            hash *= fnvPrime;
+        }
+
+        for (int i = 0; i < targetId.Length; i++)
+        {
+            hash ^= (byte)targetId[i];
+            hash *= fnvPrime;
+            hash ^= (byte)(targetId[i] >> 8);
+            hash *= fnvPrime;
+        }
+
+        uint tb = (uint)timeBucket;
+        hash ^= (byte)(tb & 0xFF);
+        hash *= fnvPrime;
+        hash ^= (byte)((tb >> 8) & 0xFF);
+        hash *= fnvPrime;
+        hash ^= (byte)((tb >> 16) & 0xFF);
+        hash *= fnvPrime;
+        hash ^= (byte)((tb >> 24) & 0xFF);
+        hash *= fnvPrime;
+
+        return hash;
     }
 
     public IReadOnlyList<Stimulus> Observe(string npcId, long simulationTimeMs)
@@ -93,8 +134,8 @@ public class GodotWorldSensorPort : IWorldSensorPort
                 // Dispersión acústica reproducible en el plano horizontal basada en PrecisionMeters
                 // Ventana temporal de 500ms para coherencia acústica sin saltos erráticos por frame
                 int timeBucket = (int)(simulationTimeMs / 500);
-                int seed = System.HashCode.Combine(npcId, playerBody.Name, timeBucket);
-                var rng = new System.Random(seed);
+                uint fnvHash = ComputeFnv1a32(_randomSeed, npcId, playerBody.Name, timeBucket);
+                var rng = new System.Random((int)(fnvHash & 0x7FFFFFFF));
                 double angleRad = rng.NextDouble() * System.Math.PI * 2.0;
                 double offsetDist = rng.NextDouble() * uncertaintyMeters;
 

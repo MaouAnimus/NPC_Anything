@@ -10,6 +10,7 @@ namespace NpcAnything.Core.Tactics;
 public class ActionCandidateGenerator
 {
     public float MaxAttackRange { get; set; } = 12.0f;
+    public float MaxVisionDistance { get; set; } = 20.0f;
     public float MinVisualConfidenceToAttack { get; set; } = 0.70f;
 
     /// <summary>
@@ -31,7 +32,7 @@ public class ActionCandidateGenerator
             bool isVisualContact = targetFact.Provenance.Contains("vision", StringComparison.OrdinalIgnoreCase);
 
             // 1. Candidato de Ataque:
-            // EXCLUSIVO para contacto visual fresco con alta certeza y dentro de rango.
+            // EXCLUSIVO para contacto visual fresco con alta certeza y dentro de rango de disparo (<= 12m).
             if (isVisualContact && confidence >= MinVisualConfidenceToAttack && dist <= MaxAttackRange)
             {
                 float proximityBonus = 1.0f - (dist / MaxAttackRange);
@@ -45,7 +46,22 @@ public class ActionCandidateGenerator
                     TargetPosition: targetFact.EstimatedPosition));
             }
 
-            // 2. Candidato de Investigación:
+            // 2. Candidato de Persecución (Pursue):
+            // Contacto visual fresco directo fuera de alcance de ataque pero dentro de alcance visual (12m a 20m).
+            // Permite al NPC aproximarse activamente hacia el objetivo visible.
+            if (isVisualContact && confidence >= MinVisualConfidenceToAttack && dist > MaxAttackRange && dist <= MaxVisionDistance)
+            {
+                float pursueScore = Math.Clamp((confidence * 0.5f) + 0.35f, 0.70f, 0.90f);
+
+                candidates.Add(new ActionCandidate(
+                    ActionKind.Pursue,
+                    pursueScore,
+                    "TARGET_IN_SIGHT_CLOSE_DISTANCE",
+                    TargetId: targetFact.SubjectId,
+                    TargetPosition: targetFact.EstimatedPosition));
+            }
+
+            // 3. Candidato de Investigación:
             // Para contactos auditivos o cuando se pierde contacto visual directo (búsqueda del último avistamiento).
             if (!isVisualContact || confidence < MinVisualConfidenceToAttack)
             {

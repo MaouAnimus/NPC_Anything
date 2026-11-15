@@ -1,8 +1,8 @@
 # NPC Anything
 
-**Versión:** 0.2.0 (Hito 03-B: Corrección y Validación de Simulación en Motor)  
+**Versión:** 0.3.0 (Hito 03-C: Persecución Táctica, Adquisición FOV y Determinismo)  
 **Fecha:** 15 de noviembre de 2026  
-**Estado:** Hito 03-B implementado. Patrulla pura en Core, principio fail-closed en navegación, modos de velocidad, anti-wallhack estricto y telemetría completa.  
+**Estado:** Hito 03-C implementado. Acción táctica Pursue en Core, validación FOV pre-rotación con adquisición progresiva, resolución estricta de objetivos por ID sin fallback ciego, hash determinista FNV-1a para acústica inter-proceso, sincronización multi-frame con NavigationServer3D y paridad simétrica de patrulla.  
 
 ---
 
@@ -39,7 +39,7 @@ NPC_Anything/
 │       │   └── Arena_NpcAnything.tscn  # Variante B: Enemigo controlado por NpcAnything.Core
 │       └── scripts/                    # Controladores de jugador, baseline y entorno
 ├── tests/
-│   └── Core.Tests/              # Suite de pruebas unitarias xUnit (27 tests automatizados)
+│   └── Core.Tests/              # Suite de pruebas unitarias xUnit (31 tests automatizados)
 ├── tools/
 │   ├── agent/                   # Asistente de inspección local (MCP)
 │   └── bench/                   # Comparadores y runners de telemetría JSONL

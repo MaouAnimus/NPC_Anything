@@ -52,6 +52,24 @@ public static class FairnessFilter
                 continue;
             }
 
+            // Regla 4: Perseguir (Pursue) requiere una posición objetivo y contacto visual en memoria
+            if (candidate.Kind == ActionKind.Pursue)
+            {
+                if (!candidate.TargetPosition.HasValue)
+                {
+                    continue;
+                }
+
+                if (candidate.TargetId != null &&
+                    (!context.Memory.TryGetValue(candidate.TargetId, out var fact) ||
+                     fact.IsExpired(context.CurrentTimeMs) ||
+                     !fact.Provenance.Contains("vision", StringComparison.OrdinalIgnoreCase)))
+                {
+                    // Descartado: Intento de persecución sin visión activa
+                    continue;
+                }
+            }
+
             result.Add(candidate);
         }
 

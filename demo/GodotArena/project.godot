@@ -8,7 +8,7 @@ config_version=5
 
 config/name="NPC Anything - Demo Arena"
 config/description="Escenario táctico controlado para evaluación y comparación de NPC Anything contra baseline tradicional."
-config/version="0.2.0"
+config/version="0.3.0"
 run/main_scene="res://scenes/Arena_Baseline.tscn"
 config/features=PackedStringArray("4.3", "C#", "Forward Plus")
 

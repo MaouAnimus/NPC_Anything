@@ -95,4 +95,67 @@ public class FairnessFilterTests
 
         Assert.Empty(filtered); // Descartada: evita que dos aliados vayan al mismo punto
     }
+
+    [Fact]
+    public void ApplyFairnessRules_PursueWithoutVisualObservation_IsFilteredOut()
+    {
+        var context = new NpcContext(
+            NpcId: "enemy_01",
+            Role: NpcRole.Assault,
+            Position: new Vec3(0, 0, 0),
+            HealthRatio: 1.0f,
+            CurrentAction: ActionKind.Patrol,
+            CurrentActionScore: 0.5f,
+            CurrentTimeMs: 1000,
+            Memory: new Dictionary<string, MemoryFact>(), // Sin memoria visual
+            ReachableCoverPoints: new List<Vec3>(),
+            ReservedSquadCovers: new HashSet<string>());
+
+        var rawCandidates = new[]
+        {
+            new ActionCandidate(ActionKind.Pursue, 0.85f, "PURSUE_NO_VISION", TargetId: "Player", TargetPosition: new Vec3(15, 0, 0))
+        };
+
+        var filtered = FairnessFilter.ApplyFairnessRules(rawCandidates, context);
+
+        Assert.Empty(filtered); // Bloqueado: No se permite persecución sin visión activa
+    }
+
+    [Fact]
+    public void ApplyFairnessRules_PursueWithValidVisualObservation_IsRetained()
+    {
+        var memory = new Dictionary<string, MemoryFact>
+        {
+            ["Player"] = new MemoryFact(
+                "Player",
+                new Vec3(15, 0, 0),
+                Confidence: 0.90f,
+                PrecisionMeters: 0.3f,
+                LastUpdatedMs: 1000,
+                ExpiresAtMs: 4000,
+                Provenance: "godot_vision_raycast")
+        };
+
+        var context = new NpcContext(
+            NpcId: "enemy_01",
+            Role: NpcRole.Assault,
+            Position: new Vec3(0, 0, 0),
+            HealthRatio: 1.0f,
+            CurrentAction: ActionKind.Patrol,
+            CurrentActionScore: 0.5f,
+            CurrentTimeMs: 1000,
+            Memory: memory,
+            ReachableCoverPoints: new List<Vec3>(),
+            ReservedSquadCovers: new HashSet<string>());
+
+        var rawCandidates = new[]
+        {
+            new ActionCandidate(ActionKind.Pursue, 0.85f, "TARGET_IN_SIGHT_CLOSE_DISTANCE", TargetId: "Player", TargetPosition: new Vec3(15, 0, 0))
+        };
+
+        var filtered = FairnessFilter.ApplyFairnessRules(rawCandidates, context);
+
+        Assert.Single(filtered);
+        Assert.Equal(ActionKind.Pursue, filtered[0].Kind);
+    }
 }

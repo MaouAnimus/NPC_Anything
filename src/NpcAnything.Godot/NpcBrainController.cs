@@ -68,8 +68,8 @@ public partial class NpcBrainController : Node
 
         if (PatrolWaypoints.Count == 0 && _actor != null)
         {
-            PatrolWaypoints.Add(_actor.GlobalPosition + new Vector3(6, 0, 0));
-            PatrolWaypoints.Add(_actor.GlobalPosition + new Vector3(-6, 0, 0));
+            PatrolWaypoints.Add(_actor.GlobalPosition + new Vector3(8, 0, 0));
+            PatrolWaypoints.Add(_actor.GlobalPosition + new Vector3(-8, 0, 0));
         }
 
         // 1. Inicializar componentes puros del Core
@@ -207,10 +207,24 @@ public partial class NpcBrainController : Node
     {
         if (_actor == null || !_actor.IsInsideTree()) return;
 
-        var target = _actor.GetTree().GetFirstNodeInGroup("Player") as Node;
-        if (target != null && target.HasMethod("ApplyDamage"))
+        Node? foundNode = null;
+        var playerGroup = _actor.GetTree().GetNodesInGroup("Player");
+        foreach (var node in playerGroup)
         {
-            target.Call("ApplyDamage", damage);
+            if (node.Name == targetId || node.GetPath().ToString() == targetId)
+            {
+                foundNode = node;
+                break;
+            }
+        }
+
+        if (foundNode != null && foundNode.HasMethod("ApplyDamage"))
+        {
+            foundNode.Call("ApplyDamage", damage);
+        }
+        else
+        {
+            GD.PushWarning($"[NpcBrainController] ApplyDamageToTarget: objetivo '{targetId}' no encontrado o no tiene ApplyDamage.");
         }
     }
 

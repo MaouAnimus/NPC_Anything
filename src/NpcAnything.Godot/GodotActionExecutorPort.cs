@@ -60,6 +60,7 @@ public class GodotActionExecutorPort : IActionExecutorPort
                 }
                 break;
 
+            case ActionKind.Pursue:
             case ActionKind.Investigate:
             case ActionKind.TakeCover:
             case ActionKind.Flank:
@@ -72,14 +73,9 @@ public class GodotActionExecutorPort : IActionExecutorPort
 
             case ActionKind.Attack:
                 _motor.Stop();
-                if (decision.TargetPosition.HasValue)
-                {
-                    _motor.FaceTowards(decision.TargetPosition.Value.ToGodot());
-                }
-
                 if (!string.IsNullOrEmpty(decision.TargetId))
                 {
-                    ExecutePhysicalAttack(decision.TargetId);
+                    ExecutePhysicalAttack(decision.TargetId, decision.TargetPosition?.ToGodot());
                 }
                 break;
 
@@ -90,13 +86,13 @@ public class GodotActionExecutorPort : IActionExecutorPort
         }
     }
 
-    private void ExecutePhysicalAttack(string targetId)
+    private void ExecutePhysicalAttack(string targetId, Vector3? targetPosition = null)
     {
         if (!_actor.IsInsideTree()) return;
 
         var tree = _actor.GetTree();
 
-        // 1. Resolver el objetivo concreto correspondiente a targetId
+        // 1. Resolver el objetivo concreto correspondiente a targetId sin fallbacks ciegos (P1-02)
         Node? foundNode = null;
         var playerGroup = tree.GetNodesInGroup("Player");
         foreach (var node in playerGroup)
@@ -108,15 +104,10 @@ public class GodotActionExecutorPort : IActionExecutorPort
             }
         }
 
-        // Fallback si el ID no coincidió con el nombre del nodo pero hay un jugador en el grupo
-        if (foundNode == null && playerGroup.Count > 0)
-        {
-            foundNode = playerGroup[0];
-        }
-
         if (foundNode is not CharacterBody3D targetNode)
         {
-            GD.PushWarning($"[GodotActionExecutor] Objetivo '{targetId}' no encontrado en el árbol de escena.");
+            _onTelemetryEvent?.Invoke("attack_blocked", "Attack", 0f, "TARGET_NOT_FOUND");
+            GD.PushWarning($"[GodotActionExecutor] Objetivo '{targetId}' no encontrado en el grupo Player. Ataque descartado.");
             return;
         }
 
@@ -133,18 +124,29 @@ public class GodotActionExecutorPort : IActionExecutorPort
             return;
         }
 
-        // 3. Re-validación estricta de cono de visión (FOV)
+        // 3. Re-validación estricta de cono de visión (FOV) PREVIA a la rotación (P1-01)
         Vector3 forward = -_actor.Transform.Basis.Z;
         Vector3 horizDir = new Vector3(toTarget.X, 0f, toTarget.Z);
-        if (horizDir.LengthSquared() > 0.001f)
+        float currentAngle = horizDir.LengthSquared() > 0.001f
+            ? Mathf.RadToDeg(forward.AngleTo(horizDir.Normalized()))
+            : 0f;
+
+        // Iniciar orientación del motor hacia el objetivo
+        if (targetPosition.HasValue)
         {
-            float angle = Mathf.RadToDeg(forward.AngleTo(horizDir.Normalized()));
-            if (angle > _visionHalfAngleDegrees)
-            {
-                _onTelemetryEvent?.Invoke("attack_blocked", "Attack", 0f, "OUT_OF_FOV");
-                GD.Print($"[GodotActionExecutor] Disparo descartado: objetivo fuera de cono de visión ({angle:F1}° > {_visionHalfAngleDegrees}°).");
-                return;
-            }
+            _motor.FaceTowards(targetPosition.Value);
+        }
+        else
+        {
+            _motor.FaceTowards(targetPos);
+        }
+
+        // Si no estaba ya orientado en el cono FOV (45°), aplazar el disparo mientras adquiere ángulo
+        if (currentAngle > _visionHalfAngleDegrees)
+        {
+            _onTelemetryEvent?.Invoke("attack_blocked", "Attack", 0f, "ACQUIRING_TARGET_ANGLE");
+            GD.Print($"[GodotActionExecutor] Disparo en espera: adquiriendo ángulo hacia {targetId} ({currentAngle:F1}° > {_visionHalfAngleDegrees}°).");
+            return;
         }
 
         // 4. Validación física de trayectoria obligatoria (P0 anti-wallhack)

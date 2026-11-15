@@ -30,9 +30,9 @@ public class GodotSpatialQueryPort : ISpatialQueryPort
         float maxRadiusSq = maxRadiusMeters * maxRadiusMeters;
 
         Rid navMap = _worldContext.GetWorld3D()?.NavigationMap ?? default;
-        if (navMap == default || !navMap.IsValid)
+        if (navMap == default || !navMap.IsValid || NavigationServer3D.MapGetIterationId(navMap) == 0)
         {
-            GD.PushWarning($"[GodotSpatialQueryPort] NavigationMap no es válido para {npcId}. Fail-closed: 0 coberturas alcanzables.");
+            GD.PushWarning($"[GodotSpatialQueryPort] NavigationMap no está sincronizado para {npcId}. Fail-closed: 0 coberturas alcanzables.");
             return reachableSpots;
         }
 
@@ -92,9 +92,9 @@ public class GodotSpatialQueryPort : ISpatialQueryPort
         if (!_worldContext.IsInsideTree()) return false;
 
         Rid navMap = _worldContext.GetWorld3D()?.NavigationMap ?? default;
-        if (navMap == default || !navMap.IsValid)
+        if (navMap == default || !navMap.IsValid || NavigationServer3D.MapGetIterationId(navMap) == 0)
         {
-            GD.PushWarning("[GodotSpatialQueryPort] NavigationMap no disponible. Fail-closed: ruta no alcanzable.");
+            GD.PushWarning("[GodotSpatialQueryPort] NavigationMap no disponible o sin sincronizar. Fail-closed: ruta no alcanzable.");
             return false;
         }
 

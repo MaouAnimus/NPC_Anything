@@ -48,8 +48,8 @@ public partial class BaselineEnemy : CharacterBody3D
 
         if (PatrolWaypoints.Count == 0)
         {
-            PatrolWaypoints.Add(GlobalPosition + new Vector3(6, 0, 0));
-            PatrolWaypoints.Add(GlobalPosition + new Vector3(-6, 0, 0));
+            PatrolWaypoints.Add(GlobalPosition + new Vector3(8, 0, 0));
+            PatrolWaypoints.Add(GlobalPosition + new Vector3(-8, 0, 0));
         }
 
         UpdatePatrolTarget();
