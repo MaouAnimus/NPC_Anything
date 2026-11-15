@@ -14,7 +14,9 @@ public record NpcContext(
     long CurrentTimeMs,
     IReadOnlyDictionary<string, MemoryFact> Memory,
     IReadOnlyList<Vec3> ReachableCoverPoints,
-    IReadOnlySet<string> ReservedSquadCovers)
+    IReadOnlySet<string> ReservedSquadCovers,
+    IReadOnlyList<Vec3>? PatrolWaypoints = null)
 {
     public float HealthRatio { get; init; } = Math.Clamp(HealthRatio, 0f, 1f);
+    public IReadOnlyList<Vec3> PatrolWaypoints { get; init; } = PatrolWaypoints ?? Array.Empty<Vec3>();
 }

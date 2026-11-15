@@ -30,6 +30,11 @@ public class GodotSpatialQueryPort : ISpatialQueryPort
         float maxRadiusSq = maxRadiusMeters * maxRadiusMeters;
 
         Rid navMap = _worldContext.GetWorld3D()?.NavigationMap ?? default;
+        if (navMap == default || !navMap.IsValid)
+        {
+            GD.PushWarning($"[GodotSpatialQueryPort] NavigationMap no es válido para {npcId}. Fail-closed: 0 coberturas alcanzables.");
+            return reachableSpots;
+        }
 
         foreach (var node in coverNodes)
         {
@@ -48,35 +53,32 @@ public class GodotSpatialQueryPort : ISpatialQueryPort
                 continue;
             }
 
-            // 2. Validación obligatoria de ruta navegable real (P0)
-            if (navMap != default && navMap.IsValid)
+            // 2. Validación obligatoria de ruta navegable real (P0 - Fail Closed)
+            Vector3[] path = NavigationServer3D.MapGetPath(navMap, godotOrigin, standingSpot, optimize: true);
+
+            // Si no hay ruta o tiene menos de 2 puntos, es inalcanzable
+            if (path.Length < 2)
             {
-                Vector3[] path = NavigationServer3D.MapGetPath(navMap, godotOrigin, standingSpot, optimize: true);
+                continue;
+            }
 
-                // Si no hay ruta o tiene menos de 2 puntos, es inalcanzable
-                if (path.Length < 2)
-                {
-                    continue;
-                }
+            // Verificar que el final de la ruta realmente llega a la cobertura (no se detiene ante un abismo o muro)
+            Vector3 finalPathPoint = path[^1];
+            if (finalPathPoint.DistanceTo(standingSpot) > 1.2f)
+            {
+                continue;
+            }
 
-                // Verificar que el final de la ruta realmente llega a la cobertura (no se detiene ante un abismo o muro)
-                Vector3 finalPathPoint = path[^1];
-                if (finalPathPoint.DistanceTo(standingSpot) > 1.2f)
-                {
-                    continue;
-                }
+            // Calcular longitud real acumulada del camino
+            float totalPathLength = 0f;
+            for (int i = 0; i < path.Length - 1; i++)
+            {
+                totalPathLength += path[i].DistanceTo(path[i + 1]);
+            }
 
-                // Calcular longitud real acumulada del camino
-                float totalPathLength = 0f;
-                for (int i = 0; i < path.Length - 1; i++)
-                {
-                    totalPathLength += path[i].DistanceTo(path[i + 1]);
-                }
-
-                if (totalPathLength > maxRadiusMeters * 1.6f)
-                {
-                    continue; // Ruta excesivamente larga u obstruida
-                }
+            if (totalPathLength > maxRadiusMeters * 1.6f)
+            {
+                continue; // Ruta excesivamente larga u obstruida
             }
 
             reachableSpots.Add(standingSpot.ToVec3());
@@ -92,7 +94,8 @@ public class GodotSpatialQueryPort : ISpatialQueryPort
         Rid navMap = _worldContext.GetWorld3D()?.NavigationMap ?? default;
         if (navMap == default || !navMap.IsValid)
         {
-            return origin.DistanceTo(destination) <= maxPathLength;
+            GD.PushWarning("[GodotSpatialQueryPort] NavigationMap no disponible. Fail-closed: ruta no alcanzable.");
+            return false;
         }
 
         Vector3 start = origin.ToGodot();

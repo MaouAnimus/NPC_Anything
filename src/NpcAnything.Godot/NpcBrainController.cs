@@ -21,6 +21,7 @@ public partial class NpcBrainController : Node
     [Export] public float DecisionIntervalSeconds { get; set; } = 0.25f; // 4 Hz
     [Export] public float MaxHealth { get; set; } = 100.0f;
     [Export] public float AttackDamage { get; set; } = 10.0f;
+    [Export] public Godot.Collections.Array<Vector3> PatrolWaypoints { get; set; } = new();
 
     public float CurrentHealth { get; private set; }
 
@@ -65,16 +66,40 @@ public partial class NpcBrainController : Node
 
         _lineOfSightRay = _actor.GetNodeOrNull<RayCast3D>("LineOfSightRay");
 
+        if (PatrolWaypoints.Count == 0 && _actor != null)
+        {
+            PatrolWaypoints.Add(_actor.GlobalPosition + new Vector3(6, 0, 0));
+            PatrolWaypoints.Add(_actor.GlobalPosition + new Vector3(-6, 0, 0));
+        }
+
         // 1. Inicializar componentes puros del Core
         _memoryStore = new MemoryStore(defaultTtlMs: 4000);
         _candidateGenerator = new ActionCandidateGenerator { MaxAttackRange = 12.0f, MinVisualConfidenceToAttack = 0.70f };
         _utilitySelector = new UtilitySelector(hysteresisMargin: 0.12f, minimumViableScore: 0.15f);
 
         // 2. Inicializar adaptadores de puertos
-        _sensorPort = new GodotWorldSensorPort(_actor, _lineOfSightRay, maxVisionDistance: 20.0f, visionHalfAngleDegrees: 45.0f);
-        _spatialPort = new GodotSpatialQueryPort(_actor);
-        _actionExecutor = new GodotActionExecutorPort(_actor, _motor, _lineOfSightRay, ApplyDamageToTarget, AttackDamage);
         _telemetryExporter = new GodotTelemetryExporter(this);
+        _sensorPort = new GodotWorldSensorPort(_actor!, _lineOfSightRay, maxVisionDistance: 20.0f, visionHalfAngleDegrees: 45.0f);
+        _spatialPort = new GodotSpatialQueryPort(_actor!);
+        _actionExecutor = new GodotActionExecutorPort(
+            _actor!,
+            _motor,
+            _lineOfSightRay,
+            ApplyDamageToTarget,
+            attackDamage: AttackDamage,
+            maxAttackRange: 12.0f,
+            visionHalfAngleDegrees: 45.0f,
+            onTelemetryEvent: (evt, act, sc, reason) => EmitTelemetry(evt, act, sc, reason));
+
+        _motor.OnDestinationSet = (pos, mode) =>
+        {
+            EmitTelemetry("navigation_started", mode.ToString(), 1.0f, $"NAV_TO_{pos.X:F1}_{pos.Z:F1}");
+        };
+
+        _motor.OnDestinationReached = (pos) =>
+        {
+            EmitTelemetry("navigation_completed", "Arrived", 1.0f, $"ARRIVED_{pos.X:F1}_{pos.Z:F1}");
+        };
     }
 
     public override void _PhysicsProcess(double delta)
@@ -105,7 +130,14 @@ public partial class NpcBrainController : Node
         // 3. Consulta de geometría y rutas navegables (ISpatialQueryPort con MapGetPath)
         var reachableCovers = _spatialPort.QueryReachableCovers(NpcId, _actor.GlobalPosition.ToVec3(), maxRadiusMeters: 16.0f);
 
-        // 4. Construcción del DTO de contexto
+        // 4. Mapear waypoints de patrulla al Core
+        var waypoints = new List<Vec3>();
+        foreach (var wp in PatrolWaypoints)
+        {
+            waypoints.Add(wp.ToVec3());
+        }
+
+        // 5. Construcción del DTO de contexto
         var context = new NpcContext(
             NpcId: NpcId,
             Role: Role,
@@ -116,40 +148,27 @@ public partial class NpcBrainController : Node
             CurrentTimeMs: nowMs,
             Memory: memorySnapshot,
             ReachableCoverPoints: reachableCovers,
-            ReservedSquadCovers: new HashSet<string>());
+            ReservedSquadCovers: new HashSet<string>(),
+            PatrolWaypoints: waypoints);
 
-        // 5. Generación de candidatos tácticamente pura (NpcAnything.Core)
+        // 6. Generación de candidatos tácticamente pura (NpcAnything.Core)
         var rawCandidates = _candidateGenerator.GenerateCandidates(context);
 
-        // 6. Reglas de justicia anti-trampas (NpcAnything.Core)
+        // 7. Reglas de justicia anti-trampas (NpcAnything.Core)
         var validCandidates = FairnessFilter.ApplyFairnessRules(rawCandidates, context);
 
-        // 7. Selección por función de utilidad con histéresis (NpcAnything.Core)
+        // 8. Selección por función de utilidad con histéresis (NpcAnything.Core)
         var decision = _utilitySelector.SelectBestAction(validCandidates, context);
 
         // Registrar telemetría si hubo cambio de acción o score significativo
         if (decision.Kind != _currentDecision.Kind)
         {
-            _telemetryExporter.Emit(new TelemetryEvent(
-                SchemaVersion: "0.1",
-                RunId: "run_active",
-                ScenarioId: "SC02_CORE",
-                Seed: 42,
-                SimulationTimeMs: nowMs,
-                NpcId: NpcId,
-                Event: "action_changed",
-                Role: Role.ToString(),
-                Action: decision.Kind.ToString(),
-                Score: decision.Score,
-                ReasonCode: decision.ReasonCode,
-                KnowledgeSource: "core_utility",
-                KnowledgeAgeMs: 0,
-                ProfileHash: "sha256_mock"));
+            EmitTelemetry("action_changed", decision.Kind.ToString(), decision.Score, decision.ReasonCode);
         }
 
         _currentDecision = decision;
 
-        // 8. Ejecución física con verificación de trayectoria
+        // 9. Ejecución física con verificación de trayectoria
         if (decision.Kind == ActionKind.Attack && _attackCooldown > 0f)
         {
             // Respetar cadencia de disparo
@@ -162,6 +181,26 @@ public partial class NpcBrainController : Node
         {
             _attackCooldown = 1.0f;
         }
+    }
+
+    private void EmitTelemetry(string eventType, string action, float score, string reasonCode)
+    {
+        long nowMs = (long)Time.GetTicksMsec();
+        _telemetryExporter.Emit(new TelemetryEvent(
+            SchemaVersion: "0.1",
+            RunId: "run_active",
+            ScenarioId: "SC02_CORE",
+            Seed: 42,
+            SimulationTimeMs: nowMs,
+            NpcId: NpcId,
+            Event: eventType,
+            Role: Role.ToString(),
+            Action: action,
+            Score: score,
+            ReasonCode: reasonCode,
+            KnowledgeSource: "core_utility",
+            KnowledgeAgeMs: 0,
+            ProfileHash: "sha256_mock"));
     }
 
     private void ApplyDamageToTarget(string targetId, float damage)
@@ -178,5 +217,6 @@ public partial class NpcBrainController : Node
     public void ApplyDamage(float amount)
     {
         CurrentHealth = Mathf.Max(0f, CurrentHealth - amount);
+        EmitTelemetry("damage_received", "Hurt", amount, $"HEALTH_{CurrentHealth:F1}");
     }
 }

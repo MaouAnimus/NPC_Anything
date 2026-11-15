@@ -1,8 +1,8 @@
 # NPC Anything
 
-**Versión:** 0.2.0 (Hito 03-A: Estabilización de Runtime)  
-**Fecha:** 14 de noviembre de 2026  
-**Estado:** Implementación activa de arquitectura desacoplada y adaptador de motor.  
+**Versión:** 0.2.0 (Hito 03-B: Corrección y Validación de Simulación en Motor)  
+**Fecha:** 15 de noviembre de 2026  
+**Estado:** Hito 03-B implementado. Patrulla pura en Core, principio fail-closed en navegación, modos de velocidad, anti-wallhack estricto y telemetría completa.  
 
 ---
 
@@ -39,7 +39,7 @@ NPC_Anything/
 │       │   └── Arena_NpcAnything.tscn  # Variante B: Enemigo controlado por NpcAnything.Core
 │       └── scripts/                    # Controladores de jugador, baseline y entorno
 ├── tests/
-│   └── Core.Tests/              # Suite de pruebas unitarias xUnit (16 tests automatizados)
+│   └── Core.Tests/              # Suite de pruebas unitarias xUnit (27 tests automatizados)
 ├── tools/
 │   ├── agent/                   # Asistente de inspección local (MCP)
 │   └── bench/                   # Comparadores y runners de telemetría JSONL

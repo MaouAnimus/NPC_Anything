@@ -90,10 +90,23 @@ public class GodotWorldSensorPort : IWorldSensorPort
                 float acousticConfidence = Mathf.Clamp(1.0f - (distance / noiseRadius) * 0.4f, 0.4f, 0.85f);
                 float uncertaintyMeters = 1.0f + (distance * 0.1f);
 
+                // Dispersión acústica reproducible en el plano horizontal basada en PrecisionMeters
+                // Ventana temporal de 500ms para coherencia acústica sin saltos erráticos por frame
+                int timeBucket = (int)(simulationTimeMs / 500);
+                int seed = System.HashCode.Combine(npcId, playerBody.Name, timeBucket);
+                var rng = new System.Random(seed);
+                double angleRad = rng.NextDouble() * System.Math.PI * 2.0;
+                double offsetDist = rng.NextDouble() * uncertaintyMeters;
+
+                Vector3 noisyPos = playerBody.GlobalPosition + new Vector3(
+                    (float)(System.Math.Cos(angleRad) * offsetDist),
+                    0f,
+                    (float)(System.Math.Sin(angleRad) * offsetDist));
+
                 stimuli.Add(new Stimulus(
                     SubjectId: playerBody.Name,
                     Kind: StimulusType.Audio,
-                    EstimatedPosition: playerBody.GlobalPosition.ToVec3(),
+                    EstimatedPosition: noisyPos.ToVec3(),
                     Confidence: acousticConfidence,
                     PrecisionMeters: uncertaintyMeters,
                     ObservedAtMs: simulationTimeMs,

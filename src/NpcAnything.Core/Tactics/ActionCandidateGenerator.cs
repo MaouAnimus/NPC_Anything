@@ -82,15 +82,44 @@ public class ActionCandidateGenerator
         else
         {
             // Sin información activa en memoria: patrullar o mantener posición
-            candidates.Add(new ActionCandidate(
-                ActionKind.Hold,
-                0.40f,
-                "IDLE_STANDBY"));
+            Vec3? patrolTarget = null;
+            if (context.PatrolWaypoints.Count > 0)
+            {
+                // Seleccionar el waypoint adecuado según proximidad
+                int targetIndex = 0;
+                float nearestDistSq = float.MaxValue;
+                for (int i = 0; i < context.PatrolWaypoints.Count; i++)
+                {
+                    float dSq = context.Position.DistanceSquaredTo(context.PatrolWaypoints[i]);
+                    if (dSq < nearestDistSq)
+                    {
+                        nearestDistSq = dSq;
+                        targetIndex = i;
+                    }
+                }
+
+                // Si ya estamos prácticamente en el waypoint más cercano (umbral 1.5m), avanzar al siguiente en la secuencia
+                if (nearestDistSq <= 2.25f)
+                {
+                    targetIndex = (targetIndex + 1) % context.PatrolWaypoints.Count;
+                }
+
+                patrolTarget = context.PatrolWaypoints[targetIndex];
+            }
 
             candidates.Add(new ActionCandidate(
+                ActionKind.Hold,
+                0.30f,
+                "IDLE_STANDBY"));
+
+            // Con score de 0.60f, Patrol supera a Hold (0.30f + histéresis 0.12f = 0.42f)
+            // garantizando la transición desde el estado inicial y manteniendo patrulla activa con destino explícito.
+            float patrolScore = patrolTarget.HasValue ? 0.60f : 0.45f;
+            candidates.Add(new ActionCandidate(
                 ActionKind.Patrol,
-                0.50f,
-                "SEARCH_PATROL"));
+                patrolScore,
+                patrolTarget.HasValue ? "WAYPOINT_PATROL" : "SEARCH_PATROL",
+                TargetPosition: patrolTarget));
         }
 
         return candidates;

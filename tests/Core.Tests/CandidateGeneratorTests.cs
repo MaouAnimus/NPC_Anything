@@ -9,19 +9,22 @@ public class CandidateGeneratorTests
     private static NpcContext CreateContext(
         Dictionary<string, MemoryFact> memory,
         List<Vec3>? covers = null,
-        float healthRatio = 1.0f)
+        float healthRatio = 1.0f,
+        List<Vec3>? waypoints = null,
+        Vec3? position = null)
     {
         return new NpcContext(
             NpcId: "npc_01",
             Role: NpcRole.Assault,
-            Position: new Vec3(0, 0, 0),
+            Position: position ?? new Vec3(0, 0, 0),
             HealthRatio: healthRatio,
             CurrentAction: ActionKind.Hold,
-            CurrentActionScore: 0.4f,
+            CurrentActionScore: 0.30f,
             CurrentTimeMs: 1000,
             Memory: memory,
             ReachableCoverPoints: covers ?? new List<Vec3>(),
-            ReservedSquadCovers: new HashSet<string>());
+            ReservedSquadCovers: new HashSet<string>(),
+            PatrolWaypoints: waypoints);
     }
 
     [Fact]
@@ -99,5 +102,58 @@ public class CandidateGeneratorTests
         var coverCandidate = candidates.FirstOrDefault(c => c.Kind == ActionKind.TakeCover);
         Assert.NotNull(coverCandidate);
         Assert.True(coverCandidate.Score >= 0.70f); // Alta prioridad por salud crítica
+    }
+
+    [Fact]
+    public void GenerateCandidates_NoThreat_WithPatrolWaypoints_GeneratesPatrolCandidateWithTargetPosition()
+    {
+        var generator = new ActionCandidateGenerator();
+        var emptyMemory = new Dictionary<string, MemoryFact>();
+        var waypoints = new List<Vec3> { new(6, 0, 0), new(-6, 0, 0) };
+
+        var context = CreateContext(emptyMemory, waypoints: waypoints, position: new Vec3(0, 0, 0));
+        var candidates = generator.GenerateCandidates(context);
+
+        var patrolCandidate = candidates.FirstOrDefault(c => c.Kind == ActionKind.Patrol);
+        Assert.NotNull(patrolCandidate);
+        Assert.True(patrolCandidate.TargetPosition.HasValue);
+        Assert.Equal(0.60f, patrolCandidate.Score);
+        Assert.Equal("WAYPOINT_PATROL", patrolCandidate.ReasonCode);
+    }
+
+    [Fact]
+    public void GenerateCandidates_NoThreat_SelectsNextWaypoint_WhenAtCurrent()
+    {
+        var generator = new ActionCandidateGenerator();
+        var emptyMemory = new Dictionary<string, MemoryFact>();
+        var waypoints = new List<Vec3> { new(6, 0, 0), new(-6, 0, 0) };
+
+        // NPC situado exactamente en el waypoint [0] (6, 0, 0)
+        var context = CreateContext(emptyMemory, waypoints: waypoints, position: new Vec3(6, 0, 0));
+        var candidates = generator.GenerateCandidates(context);
+
+        var patrolCandidate = candidates.FirstOrDefault(c => c.Kind == ActionKind.Patrol);
+        Assert.NotNull(patrolCandidate);
+        Assert.True(patrolCandidate.TargetPosition.HasValue);
+        // Debe avanzar al waypoint [1] (-6, 0, 0)
+        Assert.Equal(new Vec3(-6, 0, 0), patrolCandidate.TargetPosition.Value);
+    }
+
+    [Fact]
+    public void GenerateCandidates_NoThreat_PatrolScoreOverridesHoldWithHysteresis()
+    {
+        var generator = new ActionCandidateGenerator();
+        var emptyMemory = new Dictionary<string, MemoryFact>();
+        var waypoints = new List<Vec3> { new(6, 0, 0), new(-6, 0, 0) };
+
+        var context = CreateContext(emptyMemory, waypoints: waypoints, position: new Vec3(0, 0, 0));
+        var candidates = generator.GenerateCandidates(context);
+
+        var hold = candidates.First(c => c.Kind == ActionKind.Hold);
+        var patrol = candidates.First(c => c.Kind == ActionKind.Patrol);
+
+        // Histeresis margin estándar = 0.12f. Patrol (0.60) debe superar a Hold (0.30) + 0.12 = 0.42
+        float hysteresisMargin = 0.12f;
+        Assert.True(patrol.Score >= (hold.Score + hysteresisMargin));
     }
 }

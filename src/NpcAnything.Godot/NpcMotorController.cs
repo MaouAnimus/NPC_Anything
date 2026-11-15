@@ -2,6 +2,12 @@ using Godot;
 
 namespace NpcAnything.GodotAdapter;
 
+public enum MovementMode
+{
+    Walk,
+    Sprint
+}
+
 /// <summary>
 /// Componente físico de movimiento y seguimiento de rutas para Godot.
 /// Encargado de iterar GetNextPathPosition(), orientar la cápsula y llamar MoveAndSlide().
@@ -14,9 +20,13 @@ public partial class NpcMotorController : Node
     [Export] public float RotationSpeed { get; set; } = 10.0f;
     [Export] public float DestinationThresholdSquared { get; set; } = 0.25f; // 0.5 metros
 
+    public System.Action<Vector3, MovementMode>? OnDestinationSet;
+    public System.Action<Vector3>? OnDestinationReached;
+
     private CharacterBody3D? _actor;
     private NavigationAgent3D? _navAgent;
     private Vector3? _currentDestination;
+    private MovementMode _currentMode = MovementMode.Walk;
     private float _gravity = ProjectSettings.GetSetting("physics/3d/default_gravity").AsSingle();
     private bool _isNavigating = false;
 
@@ -39,12 +49,13 @@ public partial class NpcMotorController : Node
     }
 
     /// <summary>
-    /// Asigna un nuevo objetivo de navegación. Si el objetivo es prácticamente idéntico al actual,
-    /// se omite el recálculo de la ruta para no saturar NavigationServer3D.
+    /// Asigna un nuevo objetivo de navegación y el modo de desplazamiento (Walk o Sprint).
     /// </summary>
-    public void SetDestination(Vector3 targetPos)
+    public void SetDestination(Vector3 targetPos, MovementMode mode = MovementMode.Walk)
     {
         if (_navAgent == null) return;
+
+        _currentMode = mode;
 
         if (_currentDestination.HasValue &&
             _currentDestination.Value.DistanceSquaredTo(targetPos) <= DestinationThresholdSquared)
@@ -56,6 +67,7 @@ public partial class NpcMotorController : Node
         _currentDestination = targetPos;
         _navAgent.TargetPosition = targetPos;
         _isNavigating = true;
+        OnDestinationSet?.Invoke(targetPos, mode);
     }
 
     public void Stop()
@@ -94,13 +106,18 @@ public partial class NpcMotorController : Node
             velocity.Y -= _gravity * (float)delta;
         }
 
+        float currentSpeed = (_currentMode == MovementMode.Sprint) ? SprintSpeed : WalkSpeed;
+
         if (_isNavigating)
         {
             if (_navAgent.IsNavigationFinished())
             {
+                var reachedPos = _currentDestination ?? _actor.GlobalPosition;
                 _isNavigating = false;
+                _currentDestination = null;
                 velocity.X = 0;
                 velocity.Z = 0;
+                OnDestinationReached?.Invoke(reachedPos);
             }
             else
             {
@@ -111,8 +128,8 @@ public partial class NpcMotorController : Node
                 if (moveDir.LengthSquared() > 0.001f)
                 {
                     moveDir = moveDir.Normalized();
-                    velocity.X = moveDir.X * WalkSpeed;
-                    velocity.Z = moveDir.Z * WalkSpeed;
+                    velocity.X = moveDir.X * currentSpeed;
+                    velocity.Z = moveDir.Z * currentSpeed;
 
                     // Orientar el personaje suavemente hacia la dirección de avance
                     Vector3 lookTarget = _actor.GlobalPosition + moveDir;
@@ -122,8 +139,8 @@ public partial class NpcMotorController : Node
         }
         else
         {
-            velocity.X = Mathf.MoveToward(velocity.X, 0, WalkSpeed);
-            velocity.Z = Mathf.MoveToward(velocity.Z, 0, WalkSpeed);
+            velocity.X = Mathf.MoveToward(velocity.X, 0, currentSpeed);
+            velocity.Z = Mathf.MoveToward(velocity.Z, 0, currentSpeed);
         }
 
         _actor.Velocity = velocity;
