@@ -63,11 +63,18 @@ public class GodotActionExecutorPort : IActionExecutorPort
             case ActionKind.Pursue:
             case ActionKind.Investigate:
             case ActionKind.TakeCover:
-            case ActionKind.Flank:
             case ActionKind.Regroup:
                 if (decision.TargetPosition.HasValue)
                 {
                     _motor.SetDestination(decision.TargetPosition.Value.ToGodot(), MovementMode.Sprint);
+                }
+                break;
+
+            case ActionKind.Flank:
+                if (decision.TargetPosition.HasValue)
+                {
+                    _motor.SetDestination(decision.TargetPosition.Value.ToGodot(), MovementMode.Sprint);
+                    _onTelemetryEvent?.Invoke("flank_initiated", "Flank", decision.Score, decision.ReasonCode);
                 }
                 break;
 

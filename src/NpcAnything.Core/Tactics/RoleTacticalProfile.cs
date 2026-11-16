@@ -57,23 +57,23 @@ public record RoleTacticalProfile(
         // Explorador: Cautela, investigación, observación a distancia, evita combate frontal abierto.
         NpcRole.Scout => new(
             NpcRole.Scout,
-            AttackWeight: 0.65f,
-            PursueWeight: 0.80f,
-            CoverWeight: 1.15f,
+            AttackWeight: 0.60f,
+            PursueWeight: 0.75f,
+            CoverWeight: 1.25f,
             FlankWeight: 1.10f,
-            InvestigateWeight: 1.40f,
+            InvestigateWeight: 1.45f,
             CriticalHealthThreshold: 0.60f,
             PreferredEngagementDistance: 16.0f),
 
         // Compañero: Soporte al jugador sin bloquear paso ni robar objetivos.
         NpcRole.Companion => new(
             NpcRole.Companion,
-            AttackWeight: 0.80f,
-            PursueWeight: 0.70f,
-            CoverWeight: 1.10f,
-            FlankWeight: 0.70f,
-            InvestigateWeight: 1.00f,
-            CriticalHealthThreshold: 0.40f,
+            AttackWeight: 0.70f,
+            PursueWeight: 0.60f,
+            CoverWeight: 1.30f,
+            FlankWeight: 0.60f,
+            InvestigateWeight: 0.90f,
+            CriticalHealthThreshold: 0.45f,
             PreferredEngagementDistance: 8.0f),
 
         _ => new(role)

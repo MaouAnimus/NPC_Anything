@@ -15,8 +15,10 @@ public record NpcContext(
     IReadOnlyDictionary<string, MemoryFact> Memory,
     IReadOnlyList<Vec3> ReachableCoverPoints,
     IReadOnlySet<string> ReservedSquadCovers,
-    IReadOnlyList<Vec3>? PatrolWaypoints = null)
+    IReadOnlyList<Vec3>? PatrolWaypoints = null,
+    IReadOnlyList<Vec3>? KnownAllyPositions = null)
 {
     public float HealthRatio { get; init; } = Math.Clamp(HealthRatio, 0f, 1f);
     public IReadOnlyList<Vec3> PatrolWaypoints { get; init; } = PatrolWaypoints ?? Array.Empty<Vec3>();
+    public IReadOnlyList<Vec3> KnownAllyPositions { get; init; } = KnownAllyPositions ?? Array.Empty<Vec3>();
 }

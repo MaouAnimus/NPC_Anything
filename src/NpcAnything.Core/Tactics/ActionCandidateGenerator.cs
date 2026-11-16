@@ -57,6 +57,16 @@ public class ActionCandidateGenerator
                 float rawPursue = (confidence * 0.5f) + 0.35f;
                 float pursueScore = Math.Clamp(rawPursue * profile.PursueWeight, 0.20f, 0.95f);
 
+                // Si es Companion y está a más de 8m de su aliado protegido, frena la persecución para no abandonarlo
+                if (context.Role == NpcRole.Companion && context.KnownAllyPositions.Count > 0)
+                {
+                    float distToAlly = context.Position.DistanceTo(context.KnownAllyPositions[0]);
+                    if (distToAlly > 8.0f)
+                    {
+                        pursueScore *= 0.50f;
+                    }
+                }
+
                 candidates.Add(new ActionCandidate(
                     ActionKind.Pursue,
                     pursueScore,
@@ -86,10 +96,33 @@ public class ActionCandidateGenerator
             if (context.ReachableCoverPoints.Count > 0)
             {
                 Vec3 bestCover = context.ReachableCoverPoints[0];
+
+                // El Companion prefiere una cobertura cercana a su aliado protegido para defenderlo
+                if (context.Role == NpcRole.Companion && context.KnownAllyPositions.Count > 0)
+                {
+                    Vec3 allyPos = context.KnownAllyPositions[0];
+                    float minAllyDist = float.MaxValue;
+                    foreach (var c in context.ReachableCoverPoints)
+                    {
+                        float d = c.DistanceTo(allyPos);
+                        if (d < minAllyDist)
+                        {
+                            minAllyDist = d;
+                            bestCover = c;
+                        }
+                    }
+                }
+
                 float healthDeficit = 1.0f - context.HealthRatio;
                 float threatUrgency = (healthDeficit >= (1.0f - profile.CriticalHealthThreshold))
                     ? (healthDeficit * 0.7f + 0.35f)
                     : (healthDeficit * 0.4f + 0.20f);
+
+                // El Scout es cauteloso: ante presencia de amenaza incrementa su urgencia defensiva
+                if (context.Role == NpcRole.Scout)
+                {
+                    threatUrgency += 0.15f;
+                }
 
                 float coverScore = Math.Clamp(threatUrgency * profile.CoverWeight, 0.2f, 0.95f);
 

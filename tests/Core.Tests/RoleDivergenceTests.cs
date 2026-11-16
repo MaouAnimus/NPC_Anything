@@ -11,7 +11,8 @@ public class RoleDivergenceTests
         float healthRatio = 1.0f,
         Vec3? npcPos = null,
         Vec3? targetPos = null,
-        List<Vec3>? covers = null)
+        List<Vec3>? covers = null,
+        List<Vec3>? allies = null)
     {
         var memory = new Dictionary<string, MemoryFact>
         {
@@ -35,7 +36,8 @@ public class RoleDivergenceTests
             CurrentTimeMs: 1000,
             Memory: memory,
             ReachableCoverPoints: covers ?? new List<Vec3>(),
-            ReservedSquadCovers: new HashSet<string>());
+            ReservedSquadCovers: new HashSet<string>(),
+            KnownAllyPositions: allies);
     }
 
     [Fact]
@@ -133,5 +135,67 @@ public class RoleDivergenceTests
 
         // Con el perfil personalizado, la cobertura supera al ataque
         Assert.True(takeCover.Score > attack.Score);
+    }
+
+    [Fact]
+    public void ScoutRole_PrioritizesCoverOverAttack_WhenThreatIsClose()
+    {
+        var generator = new ActionCandidateGenerator();
+
+        var cover = new List<Vec3> { new Vec3(2, 0, 2) };
+        // Scout con salud completa ante amenaza directa a 10m
+        var scoutContext = CreateContext(NpcRole.Scout, healthRatio: 1.0f, covers: cover);
+        var assaultContext = CreateContext(NpcRole.Assault, healthRatio: 1.0f, covers: cover);
+
+        var scoutCandidates = generator.GenerateCandidates(scoutContext);
+        var assaultCandidates = generator.GenerateCandidates(assaultContext);
+
+        var scoutCover = scoutCandidates.First(c => c.Kind == ActionKind.TakeCover);
+        var scoutAttack = scoutCandidates.First(c => c.Kind == ActionKind.Attack);
+
+        var assaultCover = assaultCandidates.First(c => c.Kind == ActionKind.TakeCover);
+        var assaultAttack = assaultCandidates.First(c => c.Kind == ActionKind.Attack);
+
+        // Asalto con vida completa ataca decididamente
+        Assert.True(assaultAttack.Score > assaultCover.Score);
+
+        // Scout es cauteloso y prioriza protección defensiva frente al combate frontal directo
+        Assert.True(scoutCover.Score > scoutAttack.Score);
+    }
+
+    [Fact]
+    public void CompanionRole_SelectsCoverNearProtectedAlly_AndRestrainsPursue()
+    {
+        var generator = new ActionCandidateGenerator();
+
+        // Dos coberturas: una lejana (X=15, Z=15) y otra cercana al aliado (X=1, Z=1)
+        var farCover = new Vec3(15, 0, 15);
+        var nearAllyCover = new Vec3(1, 0, 1);
+        var covers = new List<Vec3> { farCover, nearAllyCover };
+
+        // Aliado protegido (jugador) ubicado en (0, 0, 0), NPC compañero en (0, 0, 9)
+        var allyPos = new List<Vec3> { new Vec3(0, 0, 0) };
+        var companionContext = CreateContext(
+            NpcRole.Companion,
+            healthRatio: 0.6f,
+            npcPos: new Vec3(0, 0, 9),
+            targetPos: new Vec3(0, 0, 25), // Objetivo a 16m del compañero (distancia de persecución)
+            covers: covers,
+            allies: allyPos);
+
+        var candidates = generator.GenerateCandidates(companionContext);
+
+        var coverCandidate = candidates.FirstOrDefault(c => c.Kind == ActionKind.TakeCover);
+        var pursueCandidate = candidates.FirstOrDefault(c => c.Kind == ActionKind.Pursue);
+
+        Assert.NotNull(coverCandidate);
+        // Debe haber seleccionado la cobertura cercana al aliado para no abandonarlo
+        Assert.Equal(nearAllyCover, coverCandidate.TargetPosition);
+
+        // Como el compañero está a 9m del aliado (>8m), su score de Pursue fue moderado a la mitad
+        if (pursueCandidate != null)
+        {
+            Assert.True(pursueCandidate.Score <= 0.50f);
+        }
     }
 }

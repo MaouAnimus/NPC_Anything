@@ -151,7 +151,21 @@ public partial class NpcBrainController : Node
             waypoints.Add(wp.ToVec3());
         }
 
-        // 5. Construcción del DTO de contexto
+        // 5. Mapear aliados conocidos en la escena (jugador para Companion, otros enemigos para escuadrón)
+        var allyPositions = new List<Vec3>();
+        if (_actor.IsInsideTree())
+        {
+            string groupName = (Role == NpcRole.Companion) ? "Player" : "Enemies";
+            foreach (var node in _actor.GetTree().GetNodesInGroup(groupName))
+            {
+                if (node is CharacterBody3D body && body != _actor)
+                {
+                    allyPositions.Add(body.GlobalPosition.ToVec3());
+                }
+            }
+        }
+
+        // 6. Construcción del DTO de contexto
         var context = new NpcContext(
             NpcId: NpcId,
             Role: Role,
@@ -163,7 +177,8 @@ public partial class NpcBrainController : Node
             Memory: memorySnapshot,
             ReachableCoverPoints: reachableCovers,
             ReservedSquadCovers: new HashSet<string>(),
-            PatrolWaypoints: waypoints);
+            PatrolWaypoints: waypoints,
+            KnownAllyPositions: allyPositions);
 
         // 6. Generación de candidatos tácticamente pura (NpcAnything.Core)
         var rawCandidates = _candidateGenerator.GenerateCandidates(context);
