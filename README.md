@@ -72,6 +72,8 @@ $Godot = "RUTA_AL_GODOT_4_3_DOTNET.exe"
 & $Godot --path .\demo\GodotArena --scene "res://scenes/Arena_NpcAnything.tscn"
 ```
 
+En `Arena_NpcAnything.tscn`, las teclas `1` (11,9 m), `2` (12,1 m), `3` (19,9 m) y `4` (tras el muro central) reposicionan al jugador para pruebas visuales; están desactivadas por defecto y no se habilitan en la escena baseline.
+
 ---
 
 ## Principios Técnicos y Reglas de Oro

@@ -79,7 +79,12 @@ public partial class NpcBrainController : Node
 
         // 2. Inicializar adaptadores de puertos
         _telemetryExporter = new GodotTelemetryExporter(this);
-        _sensorPort = new GodotWorldSensorPort(_actor!, _lineOfSightRay, maxVisionDistance: 20.0f, visionHalfAngleDegrees: 45.0f);
+        _sensorPort = new GodotWorldSensorPort(
+            _actor!,
+            _lineOfSightRay,
+            maxVisionDistance: 20.0f,
+            visionHalfAngleDegrees: 45.0f,
+            randomSeed: (uint)GodotRunConfiguration.Seed);
         _spatialPort = new GodotSpatialQueryPort(_actor!);
         _actionExecutor = new GodotActionExecutorPort(
             _actor!,
@@ -104,6 +109,12 @@ public partial class NpcBrainController : Node
 
     public override void _PhysicsProcess(double delta)
     {
+        if (!GodotNavigationReadiness.IsReady)
+        {
+            _decisionTimer = 0f;
+            return;
+        }
+
         if (_attackCooldown > 0f) _attackCooldown -= (float)delta;
 
         _decisionTimer += (float)delta;
@@ -116,7 +127,7 @@ public partial class NpcBrainController : Node
 
     private void ExecuteDecisionCycle()
     {
-        if (_actor == null || !_actor.IsInsideTree()) return;
+        if (!GodotNavigationReadiness.IsReady || _actor == null || !_actor.IsInsideTree()) return;
 
         // P1-04: Impedir que el planificador tome decisiones si la navegación espacial no está sincronizada
         if (!_spatialPort.IsNavigationReady) return;
@@ -192,8 +203,8 @@ public partial class NpcBrainController : Node
         _telemetryExporter.Emit(new TelemetryEvent(
             SchemaVersion: "0.1",
             RunId: "run_active",
-            ScenarioId: "SC02_CORE",
-            Seed: 42,
+            ScenarioId: GodotRunConfiguration.ScenarioId,
+            Seed: GodotRunConfiguration.Seed,
             SimulationTimeMs: nowMs,
             NpcId: NpcId,
             Event: eventType,

@@ -60,6 +60,12 @@ Probar tres cosas por separado: **corrección técnica**, **rendimiento** y **ca
 4. Reportar p50/p95/p99, desviación y fallos; comparar baseline.
 5. Repetir tras optimizaciones, no aceptar cifras tomadas con distintas condiciones.
 
+### Cierre de transición runtime M03-C
+
+`python tools/bench/run_scenarios.py --godot <Godot-4.3-.NET>` ejecuta el fixture `demo/GodotArena/scenes/Arena_TransitionTest.tscn` en `--headless`, registra un JSONL por etiqueta INT-01 a INT-07 con semillas consecutivas desde 42 y exige que un mismo NPC emita cambios de acción contiguos `Patrol` → `Pursue` → `Attack`. El jugador empieza fuera del FOV y se mantiene inmóvil; la patrulla predeterminada lo adquiere al girar, sin introducir una ruta de movimiento nueva. El runner conserva los logs bajo `runs/int-scenarios/`; la prueba del validador no necesita Godot y se ejecuta con `python -m unittest discover -s tools/bench -p "test_*.py"`.
+
+Las etiquetas INT-01 a INT-07 no tienen todavía estímulos o criterios funcionales diferenciados definidos en el backlog o en la matriz SC-01 a SC-12. En este cierre se reutiliza el mismo fixture de transición para esas siete ejecuciones; no deben interpretarse como evidencia de siete escenarios de integración distintos.
+
 ## Cuestionario breve para participantes
 
 Después de cada variante, puntuar 1 (nada) a 7 (mucho): (1) «Entendí por qué me detectaron»; (2) «Las tácticas parecieron coherentes»; (3) «Tuve oportunidades razonables de respuesta»; (4) «El enfrentamiento se sintió repetitivo»; (5) «El compañero me ayudó sin quitarme control». Preguntas abiertas: «¿Qué comportamiento notaste?», «¿En qué momento sentiste injusticia?». Añadir consentimiento informado y no guardar datos de identificación innecesarios.
