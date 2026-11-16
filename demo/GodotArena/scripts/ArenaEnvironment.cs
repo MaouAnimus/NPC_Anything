@@ -1,4 +1,5 @@
 using Godot;
+using NpcAnything.GodotAdapter;
 
 namespace GodotArena.Scripts;
 
@@ -11,11 +12,11 @@ public partial class ArenaEnvironment : Node3D
 {
     private NavigationRegion3D? _navRegion;
 
-    public static bool IsNavigationReady { get; private set; } = false;
+    public static bool IsNavigationReady => GodotNavigationReadiness.IsReady;
 
     public override void _Ready()
     {
-        IsNavigationReady = false;
+        GodotNavigationReadiness.SetReady(false);
         _navRegion = GetNodeOrNull<NavigationRegion3D>("NavigationRegion3D");
 
         if (_navRegion != null)
@@ -91,7 +92,7 @@ public partial class ArenaEnvironment : Node3D
 
                 if (!crossesWall)
                 {
-                    IsNavigationReady = true;
+                    GodotNavigationReadiness.SetReady(true);
                     GD.Print($"[ArenaEnvironment] Sincronización exitosa en frame {frame + 1}: Ruta de {path.Length} nodos rodea correctamente el muro central.");
                     return;
                 }
@@ -102,5 +103,10 @@ public partial class ArenaEnvironment : Node3D
         {
             GD.PushError("[ArenaEnvironment] FALLO DE NAVEGACIÓN: NavigationServer3D no sincronizó rutas válidas.");
         }
+    }
+
+    public override void _ExitTree()
+    {
+        GodotNavigationReadiness.SetReady(false);
     }
 }
