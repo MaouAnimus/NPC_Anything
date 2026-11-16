@@ -46,13 +46,24 @@ public static class FairnessFilter
                 }
             }
 
-            // Regla 3: Si la acción es investigar, debe tener una posición objetivo válida
+            // Regla 3: Si la acción es flanquear, debe tener posición válida y no estar reservada por un aliado
+            if (candidate.Kind == ActionKind.Flank && candidate.TargetPosition.HasValue)
+            {
+                string coverKey = $"{candidate.TargetPosition.Value.X:F1}_{candidate.TargetPosition.Value.Z:F1}";
+                if (context.ReservedSquadCovers.Contains(coverKey))
+                {
+                    // Descartado: Ruta de flanqueo reservada por un aliado
+                    continue;
+                }
+            }
+
+            // Regla 4: Si la acción es investigar, debe tener una posición objetivo válida
             if (candidate.Kind == ActionKind.Investigate && !candidate.TargetPosition.HasValue)
             {
                 continue;
             }
 
-            // Regla 4: Perseguir (Pursue) requiere una posición objetivo y contacto visual en memoria
+            // Regla 5: Perseguir (Pursue) requiere una posición objetivo y contacto visual en memoria
             if (candidate.Kind == ActionKind.Pursue)
             {
                 if (!candidate.TargetPosition.HasValue)

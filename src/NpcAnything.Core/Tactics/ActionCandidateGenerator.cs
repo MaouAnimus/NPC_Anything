@@ -12,15 +12,17 @@ public class ActionCandidateGenerator
     public float MaxAttackRange { get; set; } = 12.0f;
     public float MaxVisionDistance { get; set; } = 20.0f;
     public float MinVisualConfidenceToAttack { get; set; } = 0.70f;
+    public RoleTacticalProfile? CustomRoleProfile { get; set; } = null;
 
     /// <summary>
-    /// Genera la lista de candidatos de acción a partir del estado contextual permitido.
+    /// Genera la lista de candidatos de acción a partir del estado contextual permitido y el perfil de rol.
     /// Garantiza que la memoria auditiva o desactualizada solo habilite 'Investigate' o 'TakeCover',
     /// nunca 'Attack' directo a ciegas.
     /// </summary>
     public IReadOnlyList<ActionCandidate> GenerateCandidates(NpcContext context)
     {
         var candidates = new List<ActionCandidate>();
+        var profile = CustomRoleProfile?.Role == context.Role ? CustomRoleProfile : RoleTacticalProfile.ForRole(context.Role);
 
         // Buscar el objetivo principal en memoria no expirada
         var targetFact = context.Memory.Values.FirstOrDefault(f => !f.IsExpired(context.CurrentTimeMs));
@@ -36,7 +38,8 @@ public class ActionCandidateGenerator
             if (isVisualContact && confidence >= MinVisualConfidenceToAttack && dist <= MaxAttackRange)
             {
                 float proximityBonus = 1.0f - (dist / MaxAttackRange);
-                float attackScore = (proximityBonus * 0.6f) + (confidence * 0.4f);
+                float rawScore = (proximityBonus * 0.6f) + (confidence * 0.4f);
+                float attackScore = Math.Clamp(rawScore * profile.AttackWeight, 0.10f, 1.0f);
 
                 candidates.Add(new ActionCandidate(
                     ActionKind.Attack,
@@ -48,10 +51,11 @@ public class ActionCandidateGenerator
 
             // 2. Candidato de Persecución (Pursue):
             // Contacto visual fresco directo fuera de alcance de ataque pero dentro de alcance visual (12m a 20m).
-            // Permite al NPC aproximarse activamente hacia el objetivo visible.
+            // Permite al NPC aproximarse activamente hacia el objetivo visible según la agresividad del rol.
             if (isVisualContact && confidence >= MinVisualConfidenceToAttack && dist > MaxAttackRange && dist <= MaxVisionDistance)
             {
-                float pursueScore = Math.Clamp((confidence * 0.5f) + 0.35f, 0.70f, 0.90f);
+                float rawPursue = (confidence * 0.5f) + 0.35f;
+                float pursueScore = Math.Clamp(rawPursue * profile.PursueWeight, 0.20f, 0.95f);
 
                 candidates.Add(new ActionCandidate(
                     ActionKind.Pursue,
@@ -66,7 +70,8 @@ public class ActionCandidateGenerator
             // (investigación de la última posición conocida sin ataque ni persecución directa).
             if (!isVisualContact || confidence < MinVisualConfidenceToAttack || dist > MaxVisionDistance)
             {
-                float searchScore = Math.Clamp(confidence * 0.75f, 0.40f, 0.85f);
+                float rawSearch = confidence * 0.75f;
+                float searchScore = Math.Clamp(rawSearch * profile.InvestigateWeight, 0.30f, 0.95f);
                 string reason = (!isVisualContact) ? "ACOUSTIC_LEAD_INVESTIGATE_SOUND" : "CONTACT_LOST_SEARCH_LAST_SEEN";
 
                 candidates.Add(new ActionCandidate(
@@ -76,24 +81,69 @@ public class ActionCandidateGenerator
                     TargetPosition: targetFact.EstimatedPosition));
             }
 
-            // 3. Candidato de Cobertura:
+            // 4. Candidato de Cobertura (TakeCover):
             // Si hay amenaza activa o la salud está comprometida y existen coberturas transitables.
             if (context.ReachableCoverPoints.Count > 0)
             {
                 Vec3 bestCover = context.ReachableCoverPoints[0];
-                float threatUrgency = (1.0f - context.HealthRatio) * 0.6f + 0.35f;
+                float healthDeficit = 1.0f - context.HealthRatio;
+                float threatUrgency = (healthDeficit >= (1.0f - profile.CriticalHealthThreshold))
+                    ? (healthDeficit * 0.7f + 0.35f)
+                    : (healthDeficit * 0.4f + 0.20f);
 
-                // Rol de flanqueador o soporte pondera más la cobertura
-                if (context.Role is NpcRole.Flanker or NpcRole.Support)
-                {
-                    threatUrgency += 0.15f;
-                }
+                float coverScore = Math.Clamp(threatUrgency * profile.CoverWeight, 0.2f, 0.95f);
 
                 candidates.Add(new ActionCandidate(
                     ActionKind.TakeCover,
-                    Math.Clamp(threatUrgency, 0.2f, 0.95f),
+                    coverScore,
                     "ACTIVE_THREAT_SEEK_COVER",
                     TargetPosition: bestCover));
+            }
+
+            // 5. Candidato de Flanqueo (Flank):
+            // Evalúa si existen coberturas transitables que ofrezcan un ángulo lateral respecto al objetivo.
+            if (context.ReachableCoverPoints.Count > 0)
+            {
+                Vec3? bestFlankCover = null;
+                float bestFlankAngle = 0f;
+
+                Vec3 toTarget = targetFact.EstimatedPosition - context.Position;
+                float toTargetLen = (float)Math.Sqrt(toTarget.X * toTarget.X + toTarget.Z * toTarget.Z);
+
+                if (toTargetLen > 0.01f)
+                {
+                    foreach (var cover in context.ReachableCoverPoints)
+                    {
+                        Vec3 toCover = cover - context.Position;
+                        float toCoverLen = (float)Math.Sqrt(toCover.X * toCover.X + toCover.Z * toCover.Z);
+                        if (toCoverLen < 0.01f) continue;
+
+                        float dot = (toTarget.X * toCover.X + toTarget.Z * toCover.Z) / (toTargetLen * toCoverLen);
+                        dot = Math.Clamp(dot, -1f, 1f);
+                        float angleDeg = (float)(Math.Acos(dot) * (180.0 / Math.PI));
+
+                        // Trayectoria angular lateral entre 30° y 120°
+                        if (angleDeg >= 30f && angleDeg <= 120f)
+                        {
+                            if (angleDeg > bestFlankAngle)
+                            {
+                                bestFlankAngle = angleDeg;
+                                bestFlankCover = cover;
+                            }
+                        }
+                    }
+                }
+
+                if (bestFlankCover.HasValue)
+                {
+                    float flankScore = Math.Clamp((0.50f + (bestFlankAngle / 180f) * 0.35f) * profile.FlankWeight, 0.25f, 0.95f);
+                    candidates.Add(new ActionCandidate(
+                        ActionKind.Flank,
+                        flankScore,
+                        "FLANK_LATERAL_ROUTE",
+                        TargetId: targetFact.SubjectId,
+                        TargetPosition: bestFlankCover.Value));
+                }
             }
         }
         else
