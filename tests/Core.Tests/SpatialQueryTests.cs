@@ -29,6 +29,8 @@ public class SpatialQueryTests
             _isNavigationAvailable = isNavigationAvailable;
         }
 
+        public bool IsNavigationReady => _isNavigationAvailable;
+
         public IReadOnlyList<Vec3> QueryReachableCovers(string npcId, Vec3 origin, float maxRadiusMeters)
         {
             // Fail closed: si el mapa de navegación no está disponible, retorna lista vacía
@@ -169,5 +171,15 @@ public class SpatialQueryTests
 
         // Fail-closed: jamás retorna true si la navegación está caída
         Assert.False(port.IsPathReachable(origin, target, maxPathLength: 10.0f));
+    }
+
+    [Fact]
+    public void IsNavigationReady_ReflectsAvailability()
+    {
+        var readyPort = new MockNavMeshSpatialQueryPort(Array.Empty<Vec3>(), isNavigationAvailable: true);
+        var unreadyPort = new MockNavMeshSpatialQueryPort(Array.Empty<Vec3>(), isNavigationAvailable: false);
+
+        Assert.True(readyPort.IsNavigationReady);
+        Assert.False(unreadyPort.IsNavigationReady);
     }
 }

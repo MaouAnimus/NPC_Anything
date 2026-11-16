@@ -19,6 +19,32 @@ public class GodotSpatialQueryPort : ISpatialQueryPort
         _worldContext = worldContext;
     }
 
+    public bool IsNavigationReady
+    {
+        get
+        {
+            if (!_worldContext.IsInsideTree()) return false;
+
+            Rid navMap = _worldContext.GetWorld3D()?.NavigationMap ?? default;
+            if (navMap == default || !navMap.IsValid || NavigationServer3D.MapGetIterationId(navMap) == 0)
+            {
+                return false;
+            }
+
+            var env = _worldContext.GetTree().Root.FindChild("ArenaEnvironment", recursive: true, owned: false);
+            if (env != null)
+            {
+                var val = env.Get("NavigationReady");
+                if (val.VariantType == Variant.Type.Bool && !val.AsBool())
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
     public IReadOnlyList<Vec3> QueryReachableCovers(string npcId, Vec3 origin, float maxRadiusMeters)
     {
         var reachableSpots = new List<Vec3>();

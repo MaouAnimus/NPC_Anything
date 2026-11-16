@@ -57,6 +57,9 @@ public partial class BaselineEnemy : CharacterBody3D
 
     public override void _PhysicsProcess(double delta)
     {
+        // P1-04: Impedir que el enemigo opere si la navegación física no está sincronizada
+        if (!ArenaEnvironment.IsNavigationReady) return;
+
         Vector3 velocity = Velocity;
         if (!IsOnFloor()) velocity.Y -= _gravity * (float)delta;
 

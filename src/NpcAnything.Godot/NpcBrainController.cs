@@ -118,6 +118,9 @@ public partial class NpcBrainController : Node
     {
         if (_actor == null || !_actor.IsInsideTree()) return;
 
+        // P1-04: Impedir que el planificador tome decisiones si la navegación espacial no está sincronizada
+        if (!_spatialPort.IsNavigationReady) return;
+
         long nowMs = (long)Time.GetTicksMsec();
 
         // 1. Sensores físicos -> Estímulos

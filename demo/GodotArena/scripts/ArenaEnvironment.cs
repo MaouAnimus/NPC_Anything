@@ -12,6 +12,7 @@ public partial class ArenaEnvironment : Node3D
     private NavigationRegion3D? _navRegion;
 
     public static bool IsNavigationReady { get; private set; } = false;
+    public bool NavigationReady => IsNavigationReady;
 
     public override void _Ready()
     {
