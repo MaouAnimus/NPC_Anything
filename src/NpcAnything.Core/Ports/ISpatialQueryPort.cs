@@ -9,6 +9,11 @@ namespace NpcAnything.Core.Ports;
 public interface ISpatialQueryPort
 {
     /// <summary>
+    /// Indica si la malla y el servidor de navegación espacial están sincronizados y disponibles para consultas.
+    /// </summary>
+    bool IsNavigationReady => true;
+
+    /// <summary>
     /// Consulta los puntos de cobertura físicamente alcanzables mediante una ruta válida en la malla de navegación.
     /// </summary>
     IReadOnlyList<Vec3> QueryReachableCovers(string npcId, Vec3 origin, float maxRadiusMeters);

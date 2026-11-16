@@ -214,4 +214,42 @@ public class CandidateGeneratorTests
         Assert.Contains(candidates, c => c.Kind == ActionKind.Attack);
         Assert.DoesNotContain(candidates, c => c.Kind == ActionKind.Pursue);
     }
+
+    [Theory]
+    [InlineData(11.9f, true, false, false)]  // 11.9m: En rango de ataque (Attack, no Pursue)
+    [InlineData(12.1f, false, true, false)]  // 12.1m: Umbral de persecución (Pursue, no Attack)
+    [InlineData(19.9f, false, true, false)]  // 19.9m: Límite superior de visión (Pursue, no Attack ni Investigate)
+    [InlineData(20.1f, false, false, true)]  // 20.1m: Fuera de rango de visión (Investigate última posición, no Pursue ni Attack)
+    [InlineData(25.0f, false, false, true)]  // >20m: Investigar último avistamiento
+    public void GenerateCandidates_DistanceBoundaries_TransitionProperly(
+        float distance,
+        bool expectAttack,
+        bool expectPursue,
+        bool expectInvestigate)
+    {
+        var generator = new ActionCandidateGenerator { MaxAttackRange = 12.0f, MaxVisionDistance = 20.0f };
+
+        var memory = new Dictionary<string, MemoryFact>
+        {
+            ["Player"] = new MemoryFact(
+                "Player",
+                new Vec3(distance, 0, 0),
+                Confidence: 0.95f,
+                PrecisionMeters: 0.3f,
+                LastUpdatedMs: 1000,
+                ExpiresAtMs: 4000,
+                Provenance: "godot_vision_raycast")
+        };
+
+        var context = CreateContext(memory, position: new Vec3(0, 0, 0));
+        var candidates = generator.GenerateCandidates(context);
+
+        bool hasAttack = candidates.Any(c => c.Kind == ActionKind.Attack);
+        bool hasPursue = candidates.Any(c => c.Kind == ActionKind.Pursue);
+        bool hasInvestigate = candidates.Any(c => c.Kind == ActionKind.Investigate);
+
+        Assert.Equal(expectAttack, hasAttack);
+        Assert.Equal(expectPursue, hasPursue);
+        Assert.Equal(expectInvestigate, hasInvestigate);
+    }
 }

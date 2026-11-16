@@ -62,11 +62,12 @@ public class ActionCandidateGenerator
             }
 
             // 3. Candidato de Investigación:
-            // Para contactos auditivos o cuando se pierde contacto visual directo (búsqueda del último avistamiento).
-            if (!isVisualContact || confidence < MinVisualConfidenceToAttack)
+            // Para contactos auditivos, pérdida de certeza visual o cuando el objetivo excede el rango de visión (>20m)
+            // (investigación de la última posición conocida sin ataque ni persecución directa).
+            if (!isVisualContact || confidence < MinVisualConfidenceToAttack || dist > MaxVisionDistance)
             {
                 float searchScore = Math.Clamp(confidence * 0.75f, 0.40f, 0.85f);
-                string reason = isVisualContact ? "CONTACT_LOST_SEARCH_LAST_SEEN" : "ACOUSTIC_LEAD_INVESTIGATE_SOUND";
+                string reason = (!isVisualContact) ? "ACOUSTIC_LEAD_INVESTIGATE_SOUND" : "CONTACT_LOST_SEARCH_LAST_SEEN";
 
                 candidates.Add(new ActionCandidate(
                     ActionKind.Investigate,
