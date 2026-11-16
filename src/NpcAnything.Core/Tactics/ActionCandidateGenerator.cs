@@ -178,10 +178,66 @@ public class ActionCandidateGenerator
                         TargetPosition: bestFlankCover.Value));
                 }
             }
+
+            // 6. Candidato Follow en situación de combate para Companion:
+            // Si el compañero quedó muy separado del aliado protegido (> 12m), reagruparse
+            if (context.Role == NpcRole.Companion && context.KnownAllyPositions.Count > 0)
+            {
+                Vec3 allyPos = context.KnownAllyPositions[0];
+                float distToAlly = context.Position.DistanceTo(allyPos);
+                if (distToAlly > 12.0f)
+                {
+                    candidates.Add(new ActionCandidate(
+                        ActionKind.Follow,
+                        0.68f,
+                        "COMPANION_REGROUP_NEAR_ALLY",
+                        TargetPosition: allyPos));
+                }
+            }
         }
         else
         {
-            // Sin información activa en memoria: patrullar o mantener posición
+            // Sin información activa en memoria: patrullar, seguir o mantener posición
+
+            // Para el Companion sin amenaza activa: seguir al aliado protegido manteniendo distancia segura
+            if (context.Role == NpcRole.Companion && context.KnownAllyPositions.Count > 0)
+            {
+                Vec3 allyPos = context.KnownAllyPositions[0];
+                float distToAlly = context.Position.DistanceTo(allyPos);
+
+                if (distToAlly > 3.5f)
+                {
+                    Vec3 toNpc = context.Position - allyPos;
+                    float toNpcLen = (float)Math.Sqrt(toNpc.X * toNpc.X + toNpc.Z * toNpc.Z);
+                    Vec3 followPos;
+
+                    if (toNpcLen > 0.1f)
+                    {
+                        // Posicionarse a 3m en la dirección relativa actual (sin cruzar deliberadamente la retícula del jugador)
+                        followPos = new Vec3(allyPos.X + (toNpc.X / toNpcLen) * 3.0f, allyPos.Y, allyPos.Z + (toNpc.Z / toNpcLen) * 3.0f);
+                    }
+                    else
+                    {
+                        followPos = new Vec3(allyPos.X, allyPos.Y, allyPos.Z - 3.0f);
+                    }
+
+                    float followScore = Math.Clamp(0.55f + (distToAlly - 3.5f) * 0.05f, 0.65f, 0.88f);
+                    candidates.Add(new ActionCandidate(
+                        ActionKind.Follow,
+                        followScore,
+                        "COMPANION_FOLLOW_ALLY_SAFE_DISTANCE",
+                        TargetPosition: followPos));
+                }
+                else
+                {
+                    // Ya está a distancia cómoda: mantenerse atento protegiendo al aliado
+                    candidates.Add(new ActionCandidate(
+                        ActionKind.Hold,
+                        0.55f,
+                        "COMPANION_STANDBY_NEAR_ALLY"));
+                }
+            }
+
             Vec3? patrolTarget = null;
             if (context.PatrolWaypoints.Count > 0)
             {

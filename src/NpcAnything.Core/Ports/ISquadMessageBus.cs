@@ -12,7 +12,10 @@ public record SquadMessage(
     Vec3? TargetPosition,
     float Confidence,
     long SentAtMs,
-    long ExpiresAtMs);
+    long ExpiresAtMs,
+    long DeliverAtMs = 0,
+    Vec3? SenderPosition = null,
+    float MaxRangeMeters = float.MaxValue);
 
 /// <summary>
 /// Puerto de comunicación y sincronización táctica entre NPCs aliados.
@@ -25,9 +28,15 @@ public interface ISquadMessageBus
     void PostMessage(SquadMessage message);
 
     /// <summary>
-    /// Obtiene y drena los mensajes vigentes pendientes para el NPC receptor.
+    /// Obtiene los mensajes vigentes pendientes para el NPC receptor, considerando latencia y distancia física opcional.
     /// </summary>
-    IReadOnlyList<SquadMessage> ReceiveMessages(string npcId, string squadId, long currentTimeMs);
+    IReadOnlyList<SquadMessage> ReceiveMessages(string npcId, string squadId, long currentTimeMs, Vec3? receiverPosition = null);
+
+    /// <summary>
+    /// Sobrecarga para compatibilidad sin posición física.
+    /// </summary>
+    IReadOnlyList<SquadMessage> ReceiveMessages(string npcId, string squadId, long currentTimeMs) =>
+        ReceiveMessages(npcId, squadId, currentTimeMs, null);
 
     /// <summary>
     /// Intenta reservar un punto de cobertura para evitar que múltiples agentes intenten ocuparlo simultáneamente.

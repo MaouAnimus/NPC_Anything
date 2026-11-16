@@ -17,6 +17,7 @@ namespace NpcAnything.GodotAdapter;
 public partial class NpcBrainController : Node
 {
     [Export] public string NpcId { get; set; } = "enemy_core_01";
+    [Export] public string SquadId { get; set; } = "squad_alpha";
     [Export] public NpcRole Role { get; set; } = NpcRole.Assault;
     [Export] public float DecisionIntervalSeconds { get; set; } = 0.25f; // 4 Hz
     [Export] public float MaxHealth { get; set; } = 100.0f;
@@ -39,6 +40,7 @@ public partial class NpcBrainController : Node
     private GodotSpatialQueryPort _spatialPort = null!;
     private GodotActionExecutorPort _actionExecutor = null!;
     private ITelemetryExporter _telemetryExporter = null!;
+    private ISquadMessageBus? _squadMessageBus;
 
     private float _decisionTimer = 0f;
     private ActionDecision _currentDecision = ActionDecision.FallbackHold();
@@ -86,6 +88,7 @@ public partial class NpcBrainController : Node
             visionHalfAngleDegrees: 45.0f,
             randomSeed: (uint)GodotRunConfiguration.Seed);
         _spatialPort = new GodotSpatialQueryPort(_actor!);
+        _squadMessageBus = GodotSquadService.GetOrCreateSquadBus(SquadId);
         _actionExecutor = new GodotActionExecutorPort(
             _actor!,
             _motor,
@@ -135,10 +138,31 @@ public partial class NpcBrainController : Node
         long nowMs = (long)Time.GetTicksMsec();
 
         // 1. Sensores físicos -> Estímulos
-        var stimuli = _sensorPort.Observe(NpcId, nowMs);
+        var stimuli = new List<Stimulus>(_sensorPort.Observe(NpcId, nowMs));
 
-        // 2. Memoria con degradación temporal
+        // 2. Recepción de mensajes de escuadrón con retardo y alcance (BK-020, BK-021)
+        if (_squadMessageBus != null)
+        {
+            var incoming = _squadMessageBus.ReceiveMessages(NpcId, SquadId, nowMs, _actor.GlobalPosition.ToVec3());
+            foreach (var msg in incoming)
+            {
+                if (msg.MessageType == "CONTACT_ESTIMATED" && msg.TargetPosition.HasValue)
+                {
+                    stimuli.Add(new Stimulus(
+                        SubjectId: "Player",
+                        Kind: StimulusType.SquadMessage,
+                        EstimatedPosition: msg.TargetPosition.Value,
+                        Confidence: msg.Confidence * 0.85f,
+                        PrecisionMeters: 1.5f,
+                        ObservedAtMs: nowMs,
+                        SourceId: msg.SenderId));
+                }
+            }
+        }
+
+        // 3. Memoria con degradación temporal
         _memoryStore.ProcessStimuli(stimuli, nowMs);
+
         var memorySnapshot = _memoryStore.GetActiveFacts(nowMs);
 
         // 3. Consulta de geometría y rutas navegables (ISpatialQueryPort con MapGetPath)
@@ -165,6 +189,9 @@ public partial class NpcBrainController : Node
             }
         }
 
+        // Obtener reservas activas de cobertura del escuadrón (BK-014)
+        var reservedCovers = _squadMessageBus?.GetReservedCovers(SquadId, nowMs) ?? new HashSet<string>();
+
         // 6. Construcción del DTO de contexto
         var context = new NpcContext(
             NpcId: NpcId,
@@ -176,7 +203,7 @@ public partial class NpcBrainController : Node
             CurrentTimeMs: nowMs,
             Memory: memorySnapshot,
             ReachableCoverPoints: reachableCovers,
-            ReservedSquadCovers: new HashSet<string>(),
+            ReservedSquadCovers: reservedCovers,
             PatrolWaypoints: waypoints,
             KnownAllyPositions: allyPositions);
 
@@ -196,6 +223,30 @@ public partial class NpcBrainController : Node
         }
 
         _currentDecision = decision;
+
+        // Arbitraje de cobertura: reservar punto en el escuadrón
+        if ((decision.Kind == ActionKind.TakeCover || decision.Kind == ActionKind.Flank) && decision.TargetPosition.HasValue)
+        {
+            string coverKey = $"{decision.TargetPosition.Value.X:F1}_{decision.TargetPosition.Value.Z:F1}";
+            _squadMessageBus?.TryReserveCover(SquadId, coverKey, NpcId, nowMs, durationMs: 4000);
+        }
+
+        // Difusión de contacto visual a los aliados (con retardo de 600ms y alcance de 30m)
+        var targetFact = memorySnapshot.Values.FirstOrDefault(f => !f.IsExpired(nowMs));
+        if (_squadMessageBus != null && targetFact != null && targetFact.Provenance.Contains("vision", StringComparison.OrdinalIgnoreCase) && targetFact.GetDecayedConfidence(nowMs) >= 0.90f)
+        {
+            _squadMessageBus.PostMessage(new SquadMessage(
+                SenderId: NpcId,
+                SquadId: SquadId,
+                MessageType: "CONTACT_ESTIMATED",
+                TargetPosition: targetFact.EstimatedPosition,
+                Confidence: targetFact.GetDecayedConfidence(nowMs),
+                SentAtMs: nowMs,
+                DeliverAtMs: nowMs + 600,
+                ExpiresAtMs: nowMs + 4000,
+                SenderPosition: _actor.GlobalPosition.ToVec3(),
+                MaxRangeMeters: 30.0f));
+        }
 
         // 9. Ejecución física con verificación de trayectoria
         if (decision.Kind == ActionKind.Attack && _attackCooldown > 0f)

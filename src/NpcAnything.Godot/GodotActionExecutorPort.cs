@@ -78,6 +78,17 @@ public class GodotActionExecutorPort : IActionExecutorPort
                 }
                 break;
 
+            case ActionKind.Follow:
+                if (decision.TargetPosition.HasValue)
+                {
+                    Vector3 dest = decision.TargetPosition.Value.ToGodot();
+                    float dist = _actor.GlobalPosition.DistanceTo(dest);
+                    MovementMode mode = dist > 8.0f ? MovementMode.Sprint : MovementMode.Walk;
+                    _motor.SetDestination(dest, mode);
+                    _onTelemetryEvent?.Invoke("follow_started", "Follow", decision.Score, decision.ReasonCode);
+                }
+                break;
+
             case ActionKind.Attack:
                 _motor.Stop();
                 if (!string.IsNullOrEmpty(decision.TargetId))

@@ -81,6 +81,12 @@ public static class FairnessFilter
                 }
             }
 
+            // Regla 6: Seguir (Follow) requiere una posición objetivo válida
+            if (candidate.Kind == ActionKind.Follow && !candidate.TargetPosition.HasValue)
+            {
+                continue;
+            }
+
             result.Add(candidate);
         }
 

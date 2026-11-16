@@ -19,11 +19,35 @@ public class SquadMessageBus : ISquadMessageBus
         _messages.Add(message);
     }
 
-    public IReadOnlyList<SquadMessage> ReceiveMessages(string npcId, string squadId, long currentTimeMs)
+    public IReadOnlyList<SquadMessage> ReceiveMessages(string npcId, string squadId, long currentTimeMs, Vec3? receiverPosition = null)
     {
-        // Retorna mensajes vigentes del escuadrón emitidos por aliados (no por sí mismo)
+        // Retorna mensajes vigentes del escuadrón respetando latencia y límite de alcance
         return _messages
-            .Where(m => m.SquadId == squadId && m.SenderId != npcId && m.ExpiresAtMs > currentTimeMs)
+            .Where(m =>
+            {
+                if (m.SquadId != squadId || m.SenderId == npcId || m.ExpiresAtMs <= currentTimeMs)
+                {
+                    return false;
+                }
+
+                // Control de retardo: si todavía está en tránsito de transmisión, no se entrega aún
+                if (m.DeliverAtMs > currentTimeMs)
+                {
+                    return false;
+                }
+
+                // Control de alcance físico/radio (BK-021)
+                if (receiverPosition.HasValue && m.SenderPosition.HasValue && m.MaxRangeMeters < float.MaxValue)
+                {
+                    float dist = receiverPosition.Value.DistanceTo(m.SenderPosition.Value);
+                    if (dist > m.MaxRangeMeters)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            })
             .OrderBy(m => m.SentAtMs)
             .ToList();
     }
