@@ -41,6 +41,7 @@ def analyze_run(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     run_id = first_record.get("run_id", "unknown")
     scenario_id = first_record.get("scenario_id", "unknown")
     seed = first_record.get("seed", 0)
+    difficulty = first_record.get("difficulty", "normal")
 
     max_sim_time = max(r.get("simulation_time_ms", 0) for r in records)
 
@@ -92,6 +93,7 @@ def analyze_run(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         "run_id": run_id,
         "scenario_id": scenario_id,
         "seed": seed,
+        "difficulty": difficulty,
         "duration_ms": max_sim_time,
         "total_records": len(records),
         "event_counts": dict(event_counts),
@@ -114,6 +116,7 @@ def format_markdown_comparison(stats_a: Dict[str, Any], stats_b: Dict[str, Any],
         "|---|---:|---:|---|",
         f"| **Escenario / Semilla** | {stats_a.get('scenario_id')}:{stats_a.get('seed')} | {stats_b.get('scenario_id')}:{stats_b.get('seed')} | "
         + ("Paridad" if stats_a.get('seed') == stats_b.get('seed') else "Semillas distintas") + " |",
+        f"| **Dificultad** | {stats_a.get('difficulty', 'n/a')} | {stats_b.get('difficulty', 'n/a')} | Perfil de cognición y coordinación |",
         f"| **Duración Simulación** | {stats_a.get('duration_ms', 0)} ms | {stats_b.get('duration_ms', 0)} ms | "
         f"Δ {stats_b.get('duration_ms', 0) - stats_a.get('duration_ms', 0)} ms |",
         f"| **Eventos Registrados** | {stats_a.get('total_records', 0)} | {stats_b.get('total_records', 0)} | "

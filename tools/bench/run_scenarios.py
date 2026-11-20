@@ -24,7 +24,9 @@ class ValidationError(ValueError):
     """Raised when a Godot telemetry file does not satisfy the runtime contract."""
 
 
-def validate_jsonl(path: Path, scenario_id: str, seed: int) -> dict[str, list[str]]:
+def validate_jsonl(
+    path: Path, scenario_id: str, seed: int, expected_difficulty: str | None = None
+) -> dict[str, list[str]]:
     """Validate metadata and require the expected adjacent action transitions per NPC."""
     events: list[dict[str, Any]] = []
     try:
@@ -89,6 +91,12 @@ def validate_jsonl(path: Path, scenario_id: str, seed: int) -> dict[str, list[st
                     raise ValidationError(
                         f"{path}:{line_number}: seed {event['seed']!r} does not match {seed}"
                     )
+                if expected_difficulty is not None and "difficulty" in event:
+                    if event["difficulty"].lower() != expected_difficulty.lower():
+                        raise ValidationError(
+                            f"{path}:{line_number}: difficulty {event['difficulty']!r} "
+                            f"does not match {expected_difficulty!r}"
+                        )
                 events.append(event)
     except OSError as exc:
         raise ValidationError(f"cannot read telemetry file {path}: {exc}") from exc
@@ -150,6 +158,7 @@ def run_scenario(
     frame_limit: int,
     timeout_seconds: float,
     output_path: Path,
+    difficulty: str = "normal",
 ) -> None:
     command = [
         godot,
@@ -165,6 +174,8 @@ def run_scenario(
         scenario_id,
         "--seed",
         str(seed),
+        "--difficulty",
+        difficulty,
         "--telemetry-path",
         str(output_path),
     ]
@@ -187,9 +198,9 @@ def run_scenario(
         tail = "\n".join(output[-20:])
         raise RuntimeError(f"Godot exited with code {result.returncode}.\n{tail}")
 
-    traces = validate_jsonl(output_path, scenario_id, seed)
+    traces = validate_jsonl(output_path, scenario_id, seed, expected_difficulty=difficulty)
     print(
-        f"PASS {scenario_id} seed={seed}: "
+        f"PASS {scenario_id} seed={seed} difficulty={difficulty}: "
         + "; ".join(f"{npc_id}={actions}" for npc_id, actions in sorted(traces.items()))
     )
 
@@ -200,6 +211,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--scene", default=DEFAULT_SCENE)
     parser.add_argument("--scenario-ids", nargs="+", choices=DEFAULT_SCENARIOS, default=DEFAULT_SCENARIOS)
     parser.add_argument("--base-seed", type=int, default=42)
+    parser.add_argument(
+        "--difficulty",
+        choices=("easy", "normal", "hard", "expert"),
+        default="normal",
+        help="tactical difficulty profile (RF-11, RF-18)",
+    )
     parser.add_argument("--frames", type=int, default=600, help="Godot frames before automatic quit")
     parser.add_argument("--timeout-seconds", type=float, default=120.0)
     parser.add_argument(
@@ -231,6 +248,7 @@ def main(argv: list[str] | None = None) -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     run_dir = Path(tempfile.mkdtemp(prefix="m03c_", dir=args.output_dir))
     print(f"Godot: {godot}")
+    print(f"Difficulty: {args.difficulty}")
     print(f"JSONL output: {run_dir}")
 
     failures = 0
@@ -246,6 +264,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.frames,
                 args.timeout_seconds,
                 output_path,
+                difficulty=args.difficulty,
             )
         except (RuntimeError, ValidationError) as exc:
             failures += 1

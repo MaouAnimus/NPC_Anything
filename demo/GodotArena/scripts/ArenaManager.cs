@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
+using NpcAnything.Core.Configuration;
 using NpcAnything.GodotAdapter;
 
 namespace GodotArena.Scripts;
@@ -15,6 +16,7 @@ public partial class ArenaManager : Node3D
 {
     [Export] public string ScenarioId { get; set; } = "SC-02";
     [Export] public int RandomSeed { get; set; } = 42;
+    [Export] public DifficultyLevel Difficulty { get; set; } = DifficultyLevel.Normal;
     [Export] public bool EnableTelemetryLogging { get; set; } = true;
 
     private string _runId = "";
@@ -32,7 +34,7 @@ public partial class ArenaManager : Node3D
         }
 
         GD.Seed((ulong)RandomSeed);
-        GodotRunConfiguration.Configure(ScenarioId, RandomSeed);
+        GodotRunConfiguration.Configure(ScenarioId, RandomSeed, Difficulty);
     }
 
     public override void _Ready()
@@ -69,7 +71,7 @@ public partial class ArenaManager : Node3D
         for (int i = 0; i < arguments.Length; i++)
         {
             string option = arguments[i];
-            if (option is not "--scenario-id" and not "--seed" and not "--telemetry-path")
+            if (option is not "--scenario-id" and not "--seed" and not "--telemetry-path" and not "--difficulty")
             {
                 error = $"Argumento de usuario desconocido: '{option}'.";
                 return false;
@@ -118,6 +120,15 @@ public partial class ArenaManager : Node3D
                     _logFilePath = Path.GetFullPath(value);
                     _hasCustomTelemetryPath = true;
                     break;
+                case "--difficulty":
+                    if (!DifficultyProfileParser.TryParseLevel(value, out var parsedDifficulty))
+                    {
+                        error = $"Dificultad inválida: '{value}'. Valores permitidos: easy, normal, hard, expert.";
+                        return false;
+                    }
+
+                    Difficulty = parsedDifficulty;
+                    break;
             }
         }
 
@@ -136,6 +147,7 @@ public partial class ArenaManager : Node3D
             run_id = _runId,
             scenario_id = ScenarioId,
             seed = RandomSeed,
+            difficulty = GodotRunConfiguration.Difficulty.ToString().ToLowerInvariant(),
             simulation_time_ms = currentMs,
             npc_id = actorId,
             @event = eventType,

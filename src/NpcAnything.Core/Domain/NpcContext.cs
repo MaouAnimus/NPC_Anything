@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using NpcAnything.Core.Configuration;
+
 namespace NpcAnything.Core.Domain;
 
 /// <summary>
@@ -16,7 +20,8 @@ public record NpcContext(
     IReadOnlyList<Vec3> ReachableCoverPoints,
     IReadOnlySet<string> ReservedSquadCovers,
     IReadOnlyList<Vec3>? PatrolWaypoints = null,
-    IReadOnlyList<Vec3>? KnownAllyPositions = null)
+    IReadOnlyList<Vec3>? KnownAllyPositions = null,
+    DifficultyLevel Difficulty = DifficultyLevel.Normal)
 {
     public float HealthRatio { get; init; } = Math.Clamp(HealthRatio, 0f, 1f);
     public IReadOnlyList<Vec3> PatrolWaypoints { get; init; } = PatrolWaypoints ?? Array.Empty<Vec3>();

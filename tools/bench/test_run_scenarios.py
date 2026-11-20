@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from run_scenarios import ValidationError, validate_jsonl
+from run_scenarios import ValidationError, parse_args, validate_jsonl
 
 
 class ValidateJsonlTests(unittest.TestCase):
@@ -85,6 +85,39 @@ class ValidateJsonlTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValidationError, "invalid JSON"):
             validate_jsonl(path, "INT-01", 42)
+
+    def test_accepts_matching_difficulty(self):
+        events = [
+            self.event("action_changed", "Patrol"),
+            self.event("action_changed", "Pursue"),
+            self.event("action_changed", "Attack"),
+        ]
+        for evt in events:
+            evt["difficulty"] = "hard"
+
+        path = self.write_events(events)
+        traces = validate_jsonl(path, "INT-01", 42, expected_difficulty="hard")
+        self.assertEqual(["Patrol", "Pursue", "Attack"], traces["enemy_core_01"])
+
+    def test_rejects_difficulty_mismatch(self):
+        events = [
+            self.event("action_changed", "Patrol"),
+            self.event("action_changed", "Pursue"),
+            self.event("action_changed", "Attack"),
+        ]
+        for evt in events:
+            evt["difficulty"] = "easy"
+
+        path = self.write_events(events)
+        with self.assertRaisesRegex(ValidationError, "difficulty 'easy' does not match 'expert'"):
+            validate_jsonl(path, "INT-01", 42, expected_difficulty="expert")
+
+    def test_parse_args_handles_difficulty(self):
+        args_default = parse_args([])
+        self.assertEqual("normal", args_default.difficulty)
+
+        args_custom = parse_args(["--difficulty", "expert"])
+        self.assertEqual("expert", args_custom.difficulty)
 
 
 if __name__ == "__main__":

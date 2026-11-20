@@ -17,19 +17,22 @@ public class GodotWorldSensorPort : IWorldSensorPort
     private readonly float _maxVisionDistance;
     private readonly float _visionHalfAngleDegrees;
     private readonly uint _randomSeed;
+    private readonly float _soundLocationErrorMeters;
 
     public GodotWorldSensorPort(
         CharacterBody3D actor,
         RayCast3D? lineOfSightRay,
         float maxVisionDistance = 20.0f,
         float visionHalfAngleDegrees = 45.0f,
-        uint randomSeed = 42) // 45° a cada lado = 90° de FOV total
+        uint randomSeed = 42,
+        float soundLocationErrorMeters = 4.0f) // 45° a cada lado = 90° de FOV total
     {
         _actor = actor;
         _lineOfSightRay = lineOfSightRay;
         _maxVisionDistance = maxVisionDistance;
         _visionHalfAngleDegrees = visionHalfAngleDegrees;
         _randomSeed = randomSeed;
+        _soundLocationErrorMeters = soundLocationErrorMeters;
     }
 
     /// <summary>
@@ -127,9 +130,9 @@ public class GodotWorldSensorPort : IWorldSensorPort
 
             if (noiseRadius > 0f && distance <= noiseRadius)
             {
-                // El sonido decae con la distancia y aporta incertidumbre espacial
+                // El sonido decae con la distancia y aporta incertidumbre espacial modulada por la dificultad
                 float acousticConfidence = Mathf.Clamp(1.0f - (distance / noiseRadius) * 0.4f, 0.4f, 0.85f);
-                float uncertaintyMeters = 1.0f + (distance * 0.1f);
+                float uncertaintyMeters = _soundLocationErrorMeters + (distance * 0.1f);
 
                 // Dispersión acústica reproducible en el plano horizontal basada en PrecisionMeters
                 // Ventana temporal de 500ms para coherencia acústica sin saltos erráticos por frame

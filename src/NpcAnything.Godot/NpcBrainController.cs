@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using NpcAnything.Core.Configuration;
 using NpcAnything.Core.Domain;
 using NpcAnything.Core.Memory;
 using NpcAnything.Core.Ports;
@@ -19,6 +20,7 @@ public partial class NpcBrainController : Node
     [Export] public string NpcId { get; set; } = "enemy_core_01";
     [Export] public string SquadId { get; set; } = "squad_alpha";
     [Export] public NpcRole Role { get; set; } = NpcRole.Assault;
+    [Export] public DifficultyLevel Difficulty { get; set; } = DifficultyLevel.Normal;
     [Export] public float DecisionIntervalSeconds { get; set; } = 0.25f; // 4 Hz
     [Export] public float MaxHealth { get; set; } = 100.0f;
     [Export] public float AttackDamage { get; set; } = 10.0f;
@@ -31,6 +33,7 @@ public partial class NpcBrainController : Node
     private RayCast3D? _lineOfSightRay;
 
     // Componentes puros del Core
+    private DifficultyProfile _difficultyProfile = DifficultyProfile.Default;
     private MemoryStore _memoryStore = null!;
     private ActionCandidateGenerator _candidateGenerator = null!;
     private UtilitySelector _utilitySelector = null!;
@@ -74,8 +77,15 @@ public partial class NpcBrainController : Node
             PatrolWaypoints.Add(_actor.GlobalPosition + new Vector3(-8, 0, 0));
         }
 
+        // 0. Calibrar perfil de dificultad (BK-023, RF-11, RF-18)
+        DifficultyLevel effectiveLevel = (GodotRunConfiguration.Difficulty != DifficultyLevel.Normal)
+            ? GodotRunConfiguration.Difficulty
+            : Difficulty;
+        _difficultyProfile = DifficultyProfile.ForLevel(effectiveLevel);
+        DecisionIntervalSeconds = _difficultyProfile.ReactionDelaySeconds;
+
         // 1. Inicializar componentes puros del Core
-        _memoryStore = new MemoryStore(defaultTtlMs: 4000);
+        _memoryStore = new MemoryStore(defaultTtlMs: _difficultyProfile.MemoryTtlMs);
         _candidateGenerator = new ActionCandidateGenerator { MaxAttackRange = 12.0f, MinVisualConfidenceToAttack = 0.70f };
         _utilitySelector = new UtilitySelector(hysteresisMargin: 0.12f, minimumViableScore: 0.15f);
 
@@ -86,7 +96,8 @@ public partial class NpcBrainController : Node
             _lineOfSightRay,
             maxVisionDistance: 20.0f,
             visionHalfAngleDegrees: 45.0f,
-            randomSeed: (uint)GodotRunConfiguration.Seed);
+            randomSeed: (uint)GodotRunConfiguration.Seed,
+            soundLocationErrorMeters: _difficultyProfile.SoundLocationErrorMeters);
         _spatialPort = new GodotSpatialQueryPort(_actor!);
         _squadMessageBus = GodotSquadService.GetOrCreateSquadBus(SquadId);
         _actionExecutor = new GodotActionExecutorPort(
@@ -152,7 +163,7 @@ public partial class NpcBrainController : Node
                         SubjectId: "Player",
                         Kind: StimulusType.SquadMessage,
                         EstimatedPosition: msg.TargetPosition.Value,
-                        Confidence: msg.Confidence * 0.85f,
+                        Confidence: msg.Confidence * (0.6f + _difficultyProfile.CoordinationWeight * 0.4f),
                         PrecisionMeters: 1.5f,
                         ObservedAtMs: nowMs,
                         SourceId: msg.SenderId));
@@ -205,7 +216,8 @@ public partial class NpcBrainController : Node
             ReachableCoverPoints: reachableCovers,
             ReservedSquadCovers: reservedCovers,
             PatrolWaypoints: waypoints,
-            KnownAllyPositions: allyPositions);
+            KnownAllyPositions: allyPositions,
+            Difficulty: _difficultyProfile.Level);
 
         // 6. Generación de candidatos tácticamente pura (NpcAnything.Core)
         var rawCandidates = _candidateGenerator.GenerateCandidates(context);
@@ -231,7 +243,7 @@ public partial class NpcBrainController : Node
             _squadMessageBus?.TryReserveCover(SquadId, coverKey, NpcId, nowMs, durationMs: 4000);
         }
 
-        // Difusión de contacto visual a los aliados (con retardo de 600ms y alcance de 30m)
+        // Difusión de contacto visual a los aliados modulada por la dificultad y latencia del perfil
         var targetFact = memorySnapshot.Values.FirstOrDefault(f => !f.IsExpired(nowMs));
         if (_squadMessageBus != null && targetFact != null && targetFact.Provenance.Contains("vision", StringComparison.OrdinalIgnoreCase) && targetFact.GetDecayedConfidence(nowMs) >= 0.90f)
         {
@@ -242,8 +254,8 @@ public partial class NpcBrainController : Node
                 TargetPosition: targetFact.EstimatedPosition,
                 Confidence: targetFact.GetDecayedConfidence(nowMs),
                 SentAtMs: nowMs,
-                DeliverAtMs: nowMs + 600,
-                ExpiresAtMs: nowMs + 4000,
+                DeliverAtMs: nowMs + _difficultyProfile.SquadMessageDelayMs,
+                ExpiresAtMs: nowMs + _difficultyProfile.MemoryTtlMs,
                 SenderPosition: _actor.GlobalPosition.ToVec3(),
                 MaxRangeMeters: 30.0f));
         }
