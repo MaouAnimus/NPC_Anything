@@ -1,0 +1,372 @@
+{
+  "schema_version": "1.0",
+  "generated_at_utc": "2026-11-20T01:05:41.911106+00:00",
+  "inventory": {
+    "project_root": "~\\Downloads\\Projects\\NPC_Anything",
+    "total_files": 511,
+    "file_extensions": {
+      "(no-ext)": 181,
+      ".md": 34,
+      ".sln": 1,
+      ".zip": 1,
+      ".pdf": 2,
+      ".csv": 1,
+      ".yaml": 2,
+      ".json": 20,
+      ".sample": 14,
+      ".idx": 1,
+      ".pack": 1,
+      ".rev": 1,
+      ".csproj": 4,
+      ".godot": 1,
+      ".tscn": 7,
+      ".cs": 57,
+      ".props": 4,
+      ".targets": 4,
+      ".cache": 22,
+      ".dll": 107,
+      ".pdb": 12,
+      ".txt": 4,
+      ".up2date": 3,
+      ".editorconfig": 4,
+      ".docx": 1,
+      ".tests": 1,
+      ".exe": 1,
+      ".py": 11,
+      ".pyc": 9
+    },
+    "engine_detection": {
+      "engine": "Standalone .NET / C#",
+      "variant": ".NET 8.0+",
+      "version_estimate": "8.0",
+      "evidence_level": "VERIFIED",
+      "confidence": 0.9,
+      "evidence": [
+        {
+          "path": "demo\\GodotArena\\GodotArena.csproj",
+          "sha256": "09762976557e5c4acbc230763f9b56a304d3f4763cfc8699b3988037f91beea9",
+          "note": "C# project without direct engine configuration"
+        }
+      ]
+    },
+    "ai_entrypoints": [
+      {
+        "path": "demo\\GodotArena\\scenes\\BaselineEnemy.tscn",
+        "sha256": "9219ce5df3991a85468b46b9c2d4457828c305bf9b10756793b1a83e66010abd",
+        "matched_symbols": [
+          "CharacterBody3D",
+          "RayCast3D",
+          "NavigationAgent3D"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "demo\\GodotArena\\scenes\\NpcAnythingEnemy.tscn",
+        "sha256": "7c280e33bd6117ba250ebf29497e0fe1a4b01a6f6faa5d3eba3205a9429b8662",
+        "matched_symbols": [
+          "CharacterBody3D",
+          "RayCast3D",
+          "NavigationAgent3D"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "demo\\GodotArena\\scenes\\Player.tscn",
+        "sha256": "00624b578a4703a988f57f0334e56a8b370ae4e49a77ddaadaa136a22153239d",
+        "matched_symbols": [
+          "CharacterBody3D"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "demo\\GodotArena\\scripts\\BaselineEnemy.cs",
+        "sha256": "556dcdcc6bd06c32263528bd513f2b17924958c09ac35953f5a542d62cfdfe66",
+        "matched_symbols": [
+          "CharacterBody3D",
+          "RayCast3D",
+          "NavigationAgent3D"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "demo\\GodotArena\\scripts\\CoreEnemy.cs",
+        "sha256": "dd11959de3ec5bafe3b83339383b9190f48566d5253a3cbc4e22c5d615ed73c5",
+        "matched_symbols": [
+          "NpcBrainController",
+          "CharacterBody3D"
+        ],
+        "role_in_ai": "Decision/Brain",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "demo\\GodotArena\\scripts\\Player.cs",
+        "sha256": "f4a91833d20117f76c5f9aef97aac2f47c2f756ddf304d7fdf7017aa0990f005",
+        "matched_symbols": [
+          "CharacterBody3D"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "src\\NpcAnything.Godot\\GodotActionExecutorPort.cs",
+        "sha256": "a92040aea4307fab1f0d4d4fdfb951ab127d2cdea095637cc1a793e2ecc0a918",
+        "matched_symbols": [
+          "NpcMotorController",
+          "CharacterBody3D",
+          "RayCast3D"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "src\\NpcAnything.Godot\\GodotSquadService.cs",
+        "sha256": "58f162bcadc70397faf9964141a923c85056a2574802357262e22c61a438aae7",
+        "matched_symbols": [
+          "SquadMessageBus"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "src\\NpcAnything.Godot\\GodotWorldSensorPort.cs",
+        "sha256": "37bcdd9bf9b69f0c7dc901f4e1ac429dcfd51f1e67f900cc55b2784ea63e3d84",
+        "matched_symbols": [
+          "CharacterBody3D",
+          "RayCast3D"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "src\\NpcAnything.Godot\\NpcBrainController.cs",
+        "sha256": "2cf4b55a5b84bf35906848c3d93addeb273d50f6d31e23d69a83420862db8672",
+        "matched_symbols": [
+          "NpcBrainController",
+          "NpcMotorController",
+          "CharacterBody3D",
+          "RayCast3D",
+          "UtilitySelector",
+          "ActionCandidateGenerator",
+          "MemoryStore",
+          "SquadMessageBus"
+        ],
+        "role_in_ai": "Decision/Brain",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "src\\NpcAnything.Godot\\NpcMotorController.cs",
+        "sha256": "5ecc96d75edd4946ed388c4c7f6f957ffe240d265edbca57d1c15ffa4b70765c",
+        "matched_symbols": [
+          "NpcMotorController",
+          "CharacterBody3D",
+          "NavigationAgent3D"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "src\\NpcAnything.Core\\Coordination\\SquadMessageBus.cs",
+        "sha256": "fe205c63a59fe36ef735eb4163a32118a27710a8f1e09380612bb8276b524e38",
+        "matched_symbols": [
+          "SquadMessageBus"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "src\\NpcAnything.Core\\Memory\\MemoryStore.cs",
+        "sha256": "ad00c43a2ab4f34473803163b7692820d40dd6779343523d5bbf22f015615468",
+        "matched_symbols": [
+          "MemoryStore"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "src\\NpcAnything.Core\\Ports\\ISquadMessageBus.cs",
+        "sha256": "99410fef9b44e5ff60c7326484b341927dadc616358b81ffa0fa069f599e9cbb",
+        "matched_symbols": [
+          "SquadMessageBus"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "src\\NpcAnything.Core\\Tactics\\ActionCandidateGenerator.cs",
+        "sha256": "8483bcb9263dfe23721295bd23bf2a48189c557a40a9baad8b2e138b72e16841",
+        "matched_symbols": [
+          "ActionCandidateGenerator"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "src\\NpcAnything.Core\\Utility\\UtilitySelector.cs",
+        "sha256": "1181a3cfdea1745e81546f9fc4b37e72d84eb156f0dfa4f0524994f8026b4847",
+        "matched_symbols": [
+          "UtilitySelector"
+        ],
+        "role_in_ai": "Decision/Brain",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "tests\\Core.Tests\\AntiOmniscienceTests.cs",
+        "sha256": "49ce1e240047dfa9da7f793787f4f9ce3d7cfa680e809a55292843f5c1c99ebe",
+        "matched_symbols": [
+          "UtilitySelector",
+          "ActionCandidateGenerator",
+          "MemoryStore",
+          "SquadMessageBus"
+        ],
+        "role_in_ai": "Decision/Brain",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "tests\\Core.Tests\\CandidateGeneratorTests.cs",
+        "sha256": "beca30dbd0fcf4e0644a1851350e0cd4ca345e057032bc92883fce04ab19e2c5",
+        "matched_symbols": [
+          "ActionCandidateGenerator"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "tests\\Core.Tests\\CompanionFollowTests.cs",
+        "sha256": "b94496e523b3690cc768c41761ffdf5bf746c6c3337b7a2fd3856f3f226e42e1",
+        "matched_symbols": [
+          "ActionCandidateGenerator"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "tests\\Core.Tests\\MemoryStoreTests.cs",
+        "sha256": "da00d85bf6a5099a1f673011783b78e2583c099192b68bd909df09a40aa6b504",
+        "matched_symbols": [
+          "MemoryStore"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "tests\\Core.Tests\\RoleDivergenceTests.cs",
+        "sha256": "8707a32a94603c3e4c5643d8863fb699b4cdf270efb2ae239af152566e39a046",
+        "matched_symbols": [
+          "ActionCandidateGenerator"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "tests\\Core.Tests\\SquadCoordinationTests.cs",
+        "sha256": "ef9730978c657f1dc111f7c562850faf6c60abf1158c5ce6618b8f476eb31b7b",
+        "matched_symbols": [
+          "SquadMessageBus"
+        ],
+        "role_in_ai": "Motor/Perception",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "tests\\Core.Tests\\UtilitySelectorTests.cs",
+        "sha256": "dcf4135c48286fff7df0c9acd91ab02e95cdf095806bf7728ac3f4cb4dfa25b6",
+        "matched_symbols": [
+          "UtilitySelector"
+        ],
+        "role_in_ai": "Decision/Brain",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "tools\\agent\\inspector.py",
+        "sha256": "d120243303a4f49bec2df905cb67d388a0369cece17f22383628e535c9fa585c",
+        "matched_symbols": [
+          "NpcBrainController",
+          "NpcMotorController",
+          "CharacterBody3D",
+          "RayCast3D",
+          "NavigationAgent3D",
+          "StateMachine",
+          "UtilitySelector",
+          "ActionCandidateGenerator",
+          "MemoryStore",
+          "SquadMessageBus"
+        ],
+        "role_in_ai": "Decision/Brain",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "path": "tools\\agent\\test_agent.py",
+        "sha256": "f96de2e11ce7f9403ba116ddd05632c744f8ef3bcc257648b8de8e9d7f36a0fb",
+        "matched_symbols": [
+          "NpcBrainController",
+          "ActionCandidateGenerator"
+        ],
+        "role_in_ai": "Decision/Brain",
+        "evidence_level": "VERIFIED"
+      }
+    ],
+    "identified_behaviors": [
+      {
+        "action": "Attack",
+        "description": "Disparo directo bajo línea de visión confirmada",
+        "implemented_in": "demo\\GodotArena\\scripts\\BaselineEnemy.cs",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "action": "Patrol",
+        "description": "Patrulla activa entre puntos o waypoints",
+        "implemented_in": "src\\NpcAnything.Godot\\GodotActionExecutorPort.cs",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "action": "Pursue",
+        "description": "Persecución frontal con sprint y aproximación táctica",
+        "implemented_in": "src\\NpcAnything.Godot\\GodotActionExecutorPort.cs",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "action": "TakeCover",
+        "description": "Búsqueda y reserva de posición protegida ante amenaza",
+        "implemented_in": "src\\NpcAnything.Godot\\GodotActionExecutorPort.cs",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "action": "Flank",
+        "description": "Desplazamiento a ángulos laterales (30°-120°) respecto al objetivo",
+        "implemented_in": "src\\NpcAnything.Godot\\GodotActionExecutorPort.cs",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "action": "Investigate",
+        "description": "Inspección de pistas acústicas o última posición conocida",
+        "implemented_in": "src\\NpcAnything.Godot\\GodotActionExecutorPort.cs",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "action": "Follow",
+        "description": "Seguimiento y escolta cercana sin bloqueo de retícula",
+        "implemented_in": "src\\NpcAnything.Godot\\GodotActionExecutorPort.cs",
+        "evidence_level": "VERIFIED"
+      },
+      {
+        "action": "Hold",
+        "description": "Mantener posición en guardia o cobertura",
+        "implemented_in": "src\\NpcAnything.Godot\\GodotActionExecutorPort.cs",
+        "evidence_level": "VERIFIED"
+      }
+    ],
+    "modifiability_assessment": {
+      "architecture_style": "Decoupled (Clean Hexagonal Architecture)",
+      "ports_and_adapters_detected": true,
+      "core_engine_isolated": true,
+      "automated_tests_available": true,
+      "integration_viability": "HIGH",
+      "recommended_approach": "Conectar NpcBrainController mediante los puertos IWorldSensorPort, ISpatialQueryPort e IActionExecutorPort sin modificar NpcAnything.Core.",
+      "evidence_level": "VERIFIED"
+    }
+  },
+  "proposal_plan": null
+}
